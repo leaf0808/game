@@ -1,0 +1,242 @@
+/* ==========================================================================
+   index.css — 启动首页：整幅封面铺满全屏 + 左侧标题 + 底部启程按钮
+   画面即背景，没有独立星空层；只适配电脑端全屏
+   ========================================================================== */
+
+.page-home {
+  --ar: 1.75;                 /* cover.jpg 宽高比 1792 / 1024 */
+  height: 100%;
+  overflow: hidden;
+  background: #050a1e;        /* 图片加载前的同色底 */
+}
+
+/* --------------------------------------------------------------------------
+   主视觉层：cover 算法的容器，图片与闪烁星点共用同一坐标系
+   -------------------------------------------------------------------------- */
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.scene {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100vw, calc(100vh * var(--ar)));
+  height: max(100vh, calc(100vw / var(--ar)));
+  /* scale 1.04 留出出血，浮动时不会露边 */
+  transform: translate(-50%, -50%) scale(1.04);
+  animation: scene-drift 10s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes scene-drift {
+  0%, 100% { transform: translate(-50%, -50%) scale(1.04) translateY(0); }
+  50%      { transform: translate(-50%, -50%) scale(1.04) translateY(-11px); }
+}
+
+.scene__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 金色星点：叠加在画面上，screen 混合只提亮不压暗 */
+.scene__stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.star {
+  position: absolute;
+  width: var(--w);
+  height: var(--w);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+      rgba(255, 245, 214, .95) 0%,
+      rgba(255, 226, 158, .5) 28%,
+      rgba(255, 210, 130, .12) 58%,
+      rgba(255, 200, 120, 0) 78%);
+  opacity: var(--o);
+  animation: twinkle var(--dur) ease-in-out var(--delay) infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: calc(var(--o) * .22); transform: translate(-50%, -50%) scale(.7); }
+  50%      { opacity: var(--o);             transform: translate(-50%, -50%) scale(1.18); }
+}
+
+/* --------------------------------------------------------------------------
+   左上角标识
+   -------------------------------------------------------------------------- */
+.brand {
+  padding: 26px 0 0 7.5vw;
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------------------
+   左侧标题区（复古细衬线 / 宋体，字距舒展）
+   -------------------------------------------------------------------------- */
+.title-block {
+  position: absolute;
+  left: 7.5vw;
+  top: 45%;
+  transform: translateY(-50%);
+  z-index: 2;
+  max-width: 46vw;
+}
+
+.eyebrow {
+  margin: 0 0 2.6vh;
+  font-size: clamp(11px, 1.5vh, 15px);
+  font-weight: 300;
+  letter-spacing: .42em;
+  color: rgba(233, 240, 255, .58);
+  text-shadow: 0 1px 12px rgba(4, 10, 30, .8);
+}
+
+.title {
+  margin: 0;
+  font-weight: 400;
+  color: #f8faff;
+  text-shadow:
+    0 2px 26px rgba(6, 14, 44, .55),
+    0 0 60px rgba(150, 185, 255, .18);
+}
+
+.title__line {
+  display: block;
+  font-size: clamp(44px, 9.2vh, 116px);
+  line-height: 1.18;
+  letter-spacing: .14em;
+}
+
+.title__line--b {
+  margin-top: .4vh;
+  font-size: clamp(36px, 8vh, 100px);
+  letter-spacing: .1em;
+}
+
+.subtitle {
+  margin: 3vh 0 0;
+  font-size: clamp(17px, 3.4vh, 42px);
+  font-weight: 300;
+  letter-spacing: .58em;
+  color: #f7e6bd;
+  text-shadow: 0 2px 20px rgba(6, 14, 44, .6);
+}
+
+.subtitle-en {
+  margin: 1.6vh 0 0;
+  font-family: var(--font-en);
+  font-size: clamp(11px, 1.7vh, 21px);
+  font-weight: 300;
+  letter-spacing: .46em;
+  color: rgba(233, 240, 255, .52);
+}
+
+/* --------------------------------------------------------------------------
+   底部启程按钮
+   -------------------------------------------------------------------------- */
+.start-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 6.2vh;
+  transform: translateX(-50%);
+  z-index: 3;
+  text-align: center;
+}
+
+.btn-start {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  padding: 1.6vh 4.4vh;
+  border: 1px solid rgba(244, 215, 155, .5);
+  border-radius: 999px;
+  background: rgba(8, 17, 44, .42);
+  box-shadow: 0 10px 34px rgba(2, 6, 22, .45);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  transition: transform .5s cubic-bezier(.2, .8, .2, 1), border-color .5s, background .5s;
+}
+
+/* 按钮底部的微弱金色光晕 */
+.btn-start__glow {
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  width: 78%;
+  height: 30px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(244, 215, 155, .6), rgba(244, 215, 155, 0) 72%);
+  filter: blur(11px);
+  opacity: .5;
+  animation: glow-breathe 4.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes glow-breathe {
+  0%, 100% { opacity: .38; }
+  50%      { opacity: .72; }
+}
+
+.btn-start__label {
+  position: relative;
+  font-size: clamp(13px, 2vh, 20px);
+  letter-spacing: .3em;
+  color: #fff8e6;
+}
+
+.btn-start__arrow {
+  position: relative;
+  font-family: var(--font-en);
+  font-size: clamp(15px, 2.3vh, 23px);
+  color: var(--gold);
+  transition: transform .5s cubic-bezier(.2, .8, .2, 1);
+}
+
+.btn-start:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 238, 194, .95);
+  background: rgba(16, 30, 68, .42);
+}
+
+.btn-start:hover .btn-start__glow {
+  opacity: 1;
+  animation: none;
+  filter: blur(13px);
+}
+
+.btn-start:hover .btn-start__arrow { transform: translateX(8px); }
+.btn-start:active { transform: translateY(-1px); }
+
+.hint {
+  margin: 2.2vh 0 0;
+  font-size: clamp(10px, 1.4vh, 14px);
+  letter-spacing: .3em;
+  color: rgba(238, 244, 255, .5);
+  text-shadow: 0 1px 10px rgba(3, 8, 26, .9);
+}
+
+/* --------------------------------------------------------------------------
+   极端比例下的微调（仍以电脑端为准）
+   -------------------------------------------------------------------------- */
+@media (min-aspect-ratio: 2 / 1) {
+  /* 超宽屏：画面按高度铺满，左右余量变大 */
+  .title-block { left: 5vw; }
+}
+
+@media (max-aspect-ratio: 13 / 10) {
+  /* 偏方的屏幕：画面左右被裁，标题收一点 */
+  .title-block { left: 5.5vw; max-width: 52vw; }
+  .title__line { font-size: clamp(38px, 8vh, 96px); }
+}

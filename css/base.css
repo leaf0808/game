@@ -1,0 +1,177 @@
+/* ==========================================================================
+   base.css — 设计变量、重置、星空背景层、通用组件
+   两个页面（index.html / map.html）共用
+   ========================================================================== */
+
+:root {
+  /* 夜色 */
+  --night-0: #03071a;
+  --night-1: #071233;
+  --night-2: #0d1c48;
+  --night-3: #16296a;
+
+  /* 文字 */
+  --ink:       #eef3ff;
+  --ink-soft:  rgba(238, 243, 255, .72);
+  --ink-faint: rgba(238, 243, 255, .42);
+
+  /* 点缀 */
+  --gold:      #f4d79b;
+  --gold-deep: #d8ac5f;
+  --rose:      #f2a9bd;
+  --sky-blue:  #9fc4ff;
+
+  /* 字体：联网时用 Noto Serif SC / Cormorant，离线自动回退 */
+  --font-cn: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-en: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
+
+  --radius: 18px;
+  --shadow-soft: 0 24px 60px rgba(2, 6, 22, .55);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-cn);
+  color: var(--ink);
+  background: var(--night-0);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+button { font: inherit; color: inherit; }
+
+::selection { background: rgba(244, 215, 155, .28); }
+
+/* --------------------------------------------------------------------------
+   背景层：星空画布 + 星云渐变 + 暗角
+   -------------------------------------------------------------------------- */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.sky-nebula {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 78% 18%, rgba(38, 70, 150, .55) 0%, rgba(10, 20, 56, 0) 60%),
+    radial-gradient(90%  70% at 12% 82%, rgba(64, 44, 132, .38) 0%, rgba(10, 20, 56, 0) 62%),
+    radial-gradient(70%  60% at 45% 45%, rgba(18, 40, 96, .35) 0%, rgba(4, 8, 24, 0) 70%),
+    linear-gradient(180deg, #05091f 0%, var(--night-1) 42%, #0a1638 74%, #060c24 100%);
+}
+
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(130% 110% at 50% 50%, rgba(0, 0, 0, 0) 52%, rgba(2, 5, 18, .72) 100%);
+}
+
+/* 内容统一压在背景之上 */
+.brand, .title-block, .start-bar, .map-shell { position: relative; z-index: 2; }
+
+/* --------------------------------------------------------------------------
+   顶部品牌条
+   -------------------------------------------------------------------------- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 26px 46px 0;
+  font-family: var(--font-en);
+  letter-spacing: .22em;
+  color: var(--ink-soft);
+}
+
+.brand__mark { color: var(--gold); font-size: 14px; }
+.brand__name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.brand__dot  { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-faint); }
+.brand__sub  { font-family: var(--font-cn); font-size: 12px; letter-spacing: .3em; color: var(--ink-faint); }
+
+/* --------------------------------------------------------------------------
+   通用：入场动画
+   -------------------------------------------------------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  animation: reveal-up 1.15s cubic-bezier(.22, .78, .26, 1) var(--d, 0s) forwards;
+}
+
+@keyframes reveal-up {
+  to { opacity: 1; transform: none; }
+}
+
+/* 跳转遮罩 */
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(12, 26, 72, .96), rgba(2, 5, 18, .99));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .7s ease, visibility .7s;
+}
+
+.curtain.is-on { opacity: 1; visibility: visible; }
+
+.curtain__text {
+  font-size: 26px;
+  letter-spacing: .5em;
+  color: var(--gold);
+  opacity: 0;
+  transform: scale(.94);
+}
+
+.curtain.is-on .curtain__text {
+  animation: curtain-text 1.1s ease .15s forwards;
+}
+
+@keyframes curtain-text {
+  to { opacity: 1; transform: none; }
+}
+
+/* 提示气泡 */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 46px;
+  z-index: 60;
+  transform: translate(-50%, 20px);
+  padding: 12px 26px;
+  border: 1px solid rgba(244, 215, 155, .35);
+  border-radius: 999px;
+  background: rgba(8, 18, 48, .88);
+  backdrop-filter: blur(10px);
+  font-size: 14px;
+  letter-spacing: .12em;
+  color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease;
+}
+
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

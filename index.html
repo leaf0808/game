@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>爱丽丝梦游仙境 · 仙境之旅 | Alice's Adventure</title>
+<meta name="description" content="水彩童话《爱丽丝梦游仙境》启动首页：整幅星空岛屿封面铺满屏幕。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
+
+<!-- 可选：联网加载衬线字体，离线自动回退到系统宋体 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Noto+Serif+SC:wght@300;400;600&display=swap">
+
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/index.css">
+</head>
+<body class="page-home">
+
+<!-- 主视觉：整张封面即背景，画面与星空是同一幅 -->
+<div class="stage">
+  <div class="scene" id="scene">
+    <img class="scene__img" src="assets/cover.jpg" alt="水彩插画：爱丽丝站在星空下的悬浮仙境岛屿，身旁有蘑菇、纸牌士兵、柴郡猫、小屋与茶杯">
+    <div class="scene__stars" id="stars"></div>
+  </div>
+</div>
+
+<header class="brand">
+  <span class="brand__mark">✦</span>
+  <span class="brand__name">WONDERLAND</span>
+  <span class="brand__dot"></span>
+  <span class="brand__sub">仙境故事馆</span>
+</header>
+
+<!-- 左侧标题区 -->
+<main class="title-block">
+  <p class="eyebrow">刘易斯 · 卡罗尔 原著改编</p>
+  <h1 class="title">
+    <span class="title__line">爱丽丝</span>
+    <span class="title__line title__line--b">梦游仙境</span>
+  </h1>
+  <p class="subtitle">仙境之旅</p>
+  <p class="subtitle-en">ALICE'S ADVENTURE</p>
+</main>
+
+<!-- 底部启程按钮 -->
+<footer class="start-bar">
+  <a class="btn-start" href="map.html" id="startBtn">
+    <span class="btn-start__glow" aria-hidden="true"></span>
+    <span class="btn-start__label">点击 · 开始旅程</span>
+    <span class="btn-start__arrow" aria-hidden="true">→</span>
+  </a>
+  <p class="hint">共七段梦境，沿着星间小径逐一展开</p>
+</footer>
+
+<div class="curtain" id="curtain" aria-hidden="true"><span class="curtain__text">坠入仙境 …</span></div>
+
+<script src="js/index.js"></script>
+</body>
+</html>

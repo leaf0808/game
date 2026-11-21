@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>仙境之旅 · 关卡地图 | Alice's Adventure</title>
+<meta name="description" content="《爱丽丝梦游仙境》水彩童话关卡地图：七段梦境，沿着星间小径逐一展开。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Noto+Serif+SC:wght@300;400;600;700&display=swap">
+
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/map.css">
+</head>
+<body class="page-map">
+
+<canvas id="sky" class="sky" aria-hidden="true"></canvas>
+<div class="sky-nebula" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div class="map-shell">
+
+  <!-- 顶栏 -->
+  <header class="map-head">
+    <a class="back" href="index.html">
+      <span class="back__arrow">←</span>
+      <span class="back__text">返回首页</span>
+    </a>
+
+    <div class="map-head__title">
+      <h1>仙境之旅 <em>·</em> 关卡地图</h1>
+      <p>THE MAP OF WONDERLAND &nbsp;/&nbsp; 七段梦境，沿着星间小径逐一展开</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat__num" id="statDone">0/7</span>
+        <span class="stat__cap">已抵达</span>
+      </div>
+      <div class="stat">
+        <span class="stat__num" id="statStars">0/21</span>
+        <span class="stat__cap">星尘</span>
+      </div>
+      <div class="stat stat--bar">
+        <div class="bar"><i id="barFill"></i></div>
+        <span class="stat__cap" id="statPercent">进度 0%</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 地图主体 -->
+  <main class="map-stage" id="stage">
+
+    <!-- 星间小径：viewBox 与节点百分比坐标一一对应 -->
+    <svg class="map-path" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+      <path class="map-path__glow"
+            d="M 130 700 C 190 640 250 570 300 500 C 360 420 430 590 470 660 C 520 735 600 480 650 420 C 700 360 780 545 820 610 C 870 685 940 440 980 380 C 1030 305 1100 500 1140 570"/>
+      <path class="map-path__line"
+            d="M 130 700 C 190 640 250 570 300 500 C 360 420 430 590 470 660 C 520 735 600 480 650 420 C 700 360 780 545 820 610 C 870 685 940 440 980 380 C 1030 305 1100 500 1140 570"/>
+      <path class="map-path__dash"
+            d="M 130 700 C 190 640 250 570 300 500 C 360 420 430 590 470 660 C 520 735 600 480 650 420 C 700 360 780 545 820 610 C 870 685 940 440 980 380 C 1030 305 1100 500 1140 570"/>
+    </svg>
+
+    <!-- 关卡节点由 js/map.js 依据 LEVELS 数据渲染 -->
+    <div class="map-nodes" id="nodes"></div>
+
+    <!-- 关卡详情抽屉 -->
+    <aside class="map-panel" id="panel" aria-live="polite">
+      <button class="panel__close" id="panelClose" aria-label="关闭详情">×</button>
+      <div class="panel__pic"><img id="panelImg" src="" alt=""></div>
+      <p class="panel__no" id="panelNo">CHAPTER 01</p>
+      <h2 class="panel__title" id="panelTitle">—</h2>
+      <p class="panel__en" id="panelEn">—</p>
+      <p class="panel__desc" id="panelDesc">—</p>
+
+      <p class="panel__cap">本章目标</p>
+      <ul class="panel__goals" id="panelGoals"></ul>
+
+      <div class="panel__meta">
+        <span><b id="panelTime">—</b>预计时长</span>
+        <span><b id="panelStars">—</b>星尘</span>
+      </div>
+
+      <button class="panel__cta" id="panelEnter">进入这一章</button>
+    </aside>
+
+  </main>
+
+  <!-- 图例 -->
+  <footer class="map-legend">
+    <span class="lg"><i class="dot dot--done"></i>已通关</span>
+    <span class="lg"><i class="dot dot--now"></i>当前章节</span>
+    <span class="lg"><i class="dot dot--lock"></i>未解锁</span>
+    <span class="lg lg--tip">点击节点查看章节详情 · 方向键 ← → 切换 · Esc 关闭</span>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="js/sky.js"></script>
+<script src="js/map.js"></script>
+</body>
+</html>
