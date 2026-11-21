@@ -1,60 +1,141 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>爱丽丝梦游仙境 · 仙境之旅 | Alice's Adventure</title>
-<meta name="description" content="水彩童话《爱丽丝梦游仙境》启动首页：整幅星空岛屿封面铺满屏幕。">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
-
-<!-- 可选：联网加载衬线字体，离线自动回退到系统宋体 -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Noto+Serif+SC:wght@300;400;600&display=swap">
-
-<link rel="stylesheet" href="css/base.css">
-<link rel="stylesheet" href="css/index.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="跟随白兔，选择兔子洞、毛毛虫的树枝或公爵夫人的小屋，开启爱丽丝仙境旅程。">
+  <meta name="theme-color" content="#172129">
+  <title>Alice's Wonderland Journey</title>
+  <link rel="preload" href="./assets/ui/wonderland-map.png" as="image">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./shared/transition.css">
+  <script src="./shared/transition.js" defer></script>
+  <script>document.documentElement.classList.add('js');</script>
 </head>
-<body class="page-home">
-
-<!-- 主视觉：整张封面即背景，画面与星空是同一幅 -->
-<div class="stage">
-  <div class="scene" id="scene">
-    <img class="scene__img" src="assets/cover.jpg" alt="水彩插画：爱丽丝站在星空下的悬浮仙境岛屿，身旁有蘑菇、纸牌士兵、柴郡猫、小屋与茶杯">
-    <div class="scene__stars" id="stars"></div>
+<body>
+  <div class="smoke-transition" aria-hidden="true">
+    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
+    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
+    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
   </div>
-</div>
 
-<header class="brand">
-  <span class="brand__mark">✦</span>
-  <span class="brand__name">WONDERLAND</span>
-  <span class="brand__dot"></span>
-  <span class="brand__sub">仙境故事馆</span>
-</header>
+  <svg class="svg-defs" aria-hidden="true">
+    <defs>
+      <filter id="map-title-warp" x="-5%" y="-15%" width="110%" height="130%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.08" numOctaves="1" seed="6" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="9" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="map-subtitle-warp" x="-5%" y="-15%" width="110%" height="130%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015 0.065" numOctaves="1" seed="9" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <symbol id="corner-flora" viewBox="0 0 220 220">
+        <path d="M10 12C70 20 120 65 178 148M35 20C75 55 90 110 95 185" fill="none" stroke="#66704d" stroke-width="2" stroke-linecap="round"/>
+        <path d="M67 48C36 52 25 34 31 18C52 18 69 29 67 48Z" fill="#79805a" stroke="#4f5b42" stroke-width="1"/>
+        <path d="M104 78C108 48 130 41 145 48C143 68 128 83 104 78Z" fill="#69764f" stroke="#4f5b42" stroke-width="1"/>
+        <path d="M88 119C61 112 46 126 47 143C66 150 84 140 88 119Z" fill="#89906a" stroke="#4f5b42" stroke-width="1"/>
+        <path d="M135 121C146 96 165 94 179 104C172 124 154 131 135 121Z" fill="#737e55" stroke="#4f5b42" stroke-width="1"/>
+        <path d="M94 163C111 153 127 162 131 177C116 187 101 181 94 163Z" fill="#8a9168" stroke="#4f5b42" stroke-width="1"/>
+        <path d="M38 34L57 41M112 72L135 54M81 130L56 137M142 118L169 108M99 166L122 174" fill="none" stroke="#b1ad7c" stroke-width="0.8" opacity="0.7"/>
+        <g transform="translate(56 55)" fill="#c99b94" stroke="#8f6c67" stroke-width="0.8">
+          <ellipse rx="13" ry="22" transform="rotate(0) translate(0 -10)"/>
+          <ellipse rx="13" ry="22" transform="rotate(72) translate(0 -10)"/>
+          <ellipse rx="13" ry="22" transform="rotate(144) translate(0 -10)"/>
+          <ellipse rx="13" ry="22" transform="rotate(216) translate(0 -10)"/>
+          <ellipse rx="13" ry="22" transform="rotate(288) translate(0 -10)"/>
+          <circle r="9" fill="#b7847e"/>
+          <path d="M-4 1C-2-5 6-5 5 1C4 6-3 7-4 1Z" fill="#d9b3a7"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
 
-<!-- 左侧标题区 -->
-<main class="title-block">
-  <p class="eyebrow">刘易斯 · 卡罗尔 原著改编</p>
-  <h1 class="title">
-    <span class="title__line">爱丽丝</span>
-    <span class="title__line title__line--b">梦游仙境</span>
-  </h1>
-  <p class="subtitle">仙境之旅</p>
-  <p class="subtitle-en">ALICE'S ADVENTURE</p>
-</main>
+  <div class="firefly-field" id="firefly-field" aria-hidden="true"></div>
 
-<!-- 底部启程按钮 -->
-<footer class="start-bar">
-  <a class="btn-start" href="map.html" id="startBtn">
-    <span class="btn-start__glow" aria-hidden="true"></span>
-    <span class="btn-start__label">点击 · 开始旅程</span>
-    <span class="btn-start__arrow" aria-hidden="true">→</span>
-  </a>
-  <p class="hint">共七段梦境，沿着星间小径逐一展开</p>
-</footer>
+  <div class="flora-corner flora-corner--tl" aria-hidden="true">
+    <svg viewBox="0 0 220 220"><use href="#corner-flora"></use></svg>
+    <span class="corner-petal corner-petal--one"></span>
+    <span class="corner-petal corner-petal--two"></span>
+  </div>
+  <div class="flora-corner flora-corner--tr" aria-hidden="true">
+    <svg viewBox="0 0 220 220"><use href="#corner-flora"></use></svg>
+    <span class="corner-petal corner-petal--one"></span>
+    <span class="corner-petal corner-petal--two"></span>
+  </div>
+  <div class="flora-corner flora-corner--bl" aria-hidden="true">
+    <svg viewBox="0 0 220 220"><use href="#corner-flora"></use></svg>
+    <span class="corner-petal corner-petal--one"></span>
+    <span class="corner-petal corner-petal--two"></span>
+  </div>
+  <div class="flora-corner flora-corner--br" aria-hidden="true">
+    <svg viewBox="0 0 220 220"><use href="#corner-flora"></use></svg>
+    <span class="corner-petal corner-petal--one"></span>
+    <span class="corner-petal corner-petal--two"></span>
+  </div>
 
-<div class="curtain" id="curtain" aria-hidden="true"><span class="curtain__text">坠入仙境 …</span></div>
+  <main class="journey">
+    <h1 class="sr-only">Alice's Wonderland Journey — 爱丽丝仙境旅程</h1>
 
-<script src="js/index.js"></script>
+    <div class="map-frame">
+      <img
+        class="map-image"
+        id="map-image"
+        src="./assets/ui/wonderland-map.png"
+        width="1792"
+        height="1024"
+        alt="爱丽丝仙境旅程地图：兔子洞、毛毛虫的树枝与公爵夫人的小屋由虚线依次连接"
+        draggable="false"
+      >
+
+      <div class="map-loading" aria-hidden="true">
+        <span></span>
+      </div>
+
+      <nav class="map-navigation" aria-label="选择仙境地点">
+        <a
+          class="hotspot hotspot--rabbit"
+          data-smoke-link
+          data-scene="rabbit_hole"
+          href="./scenes/rabbit_hole/index.html"
+          aria-label="进入第一站：兔子洞"
+        >
+          <span class="hotspot-visual" aria-hidden="true">
+            <img src="./assets/ui/wonderland-map.png" alt="" draggable="false">
+          </span>
+          <span class="hotspot-ring" aria-hidden="true"></span>
+        </a>
+        <a
+          class="hotspot hotspot--caterpillar is-locked"
+          data-smoke-link
+          data-scene="caterpillar_tree"
+          href="./scenes/caterpillar_tree/index.html"
+          aria-label="进入第二站：毛毛虫的树枝"
+        >
+          <span class="hotspot-visual" aria-hidden="true">
+            <img src="./assets/ui/wonderland-map.png" alt="" draggable="false">
+          </span>
+          <span class="hotspot-ring" aria-hidden="true"></span>
+        </a>
+        <a
+          class="hotspot hotspot--duchess is-locked"
+          data-smoke-link
+          data-scene="duchess_cottage"
+          href="./scenes/duchess_cottage/index.html"
+          aria-label="进入第三站：公爵夫人的小屋"
+        >
+          <span class="hotspot-visual" aria-hidden="true">
+            <img src="./assets/ui/wonderland-map.png" alt="" draggable="false">
+          </span>
+          <span class="hotspot-ring" aria-hidden="true"></span>
+        </a>
+      </nav>
+    </div>
+
+    <p class="map-caption"><span aria-hidden="true"></span>选择一处地点，进入仙境<span aria-hidden="true"></span></p>
+  </main>
+
+  <script src="./scripts/loading.js"></script>
+  <script src="./shared/progress.js"></script>
+  <script src="./scripts/map_nav.js"></script>
 </body>
 </html>
