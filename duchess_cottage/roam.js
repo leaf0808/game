@@ -2,5 +2,5 @@
 // 漫游结束时调用 completeScene()，保存完成状态并返回地图。
 function completeScene() {
   window.WonderlandProgress.completeScene('duchess_cottage');
-  window.location.href = '../map.html';
+  window.location.href = '../index.html';
 }
