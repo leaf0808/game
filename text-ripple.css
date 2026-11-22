@@ -1,0 +1,22 @@
+.ripple-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ripple-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.ripple-char {
+  display: inline-block;
+  transform-origin: 50% 70%;
+  transition: transform 160ms ease-out, filter 160ms ease-out;
+}
+
+.ripple-char.is-near {
+  will-change: transform, filter;
+}
