@@ -2,5 +2,5 @@
 // 漫游结束时调用 completeScene()，解锁公爵夫人的小屋并返回地图。
 function completeScene() {
   window.WonderlandProgress.completeScene('caterpillar_tree');
-  window.location.href = '../../index.html';
+  window.location.href = '../index.html';
 }
