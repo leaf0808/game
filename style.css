@@ -1,0 +1,646 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: Georgia, "Times New Roman", "Songti SC", SimSun, serif;
+  background: #172129;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100svh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 3vw, 44px);
+  background:
+    radial-gradient(circle at 8% 18%, rgba(227, 200, 130, 0.5) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 87% 12%, rgba(227, 200, 130, 0.38) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 75% 86%, rgba(227, 200, 130, 0.34) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 19% 79%, rgba(227, 200, 130, 0.28) 0 1px, transparent 1.5px),
+    radial-gradient(ellipse at 50% 45%, #2d3438 0%, #1d2930 52%, #111b23 100%);
+  background-size: 163px 163px, 211px 211px, 197px 197px, 239px 239px, auto;
+}
+
+.journey {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1600px);
+}
+
+.map-frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(197, 169, 112, 0.5);
+  border-radius: 5px;
+  background: #e8d8b5;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.45),
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    0 0 0 5px rgba(218, 190, 132, 0.06);
+  isolation: isolate;
+}
+
+.map-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  transition: opacity 700ms ease;
+}
+
+.js .map-image {
+  opacity: 0;
+}
+
+.js .map-image.is-loaded {
+  opacity: 1;
+}
+
+/* 加载态：画框内流动的水雾，地图就绪后散开 */
+.map-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 52%, rgba(232, 216, 181, 0.5), rgba(232, 216, 181, 0.16) 62%, transparent 84%);
+}
+
+.js .map-loading {
+  display: block;
+}
+
+.js .is-ready .map-loading {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 900ms ease, visibility 0s linear 900ms;
+}
+
+.map-mist {
+  position: absolute;
+  width: 58%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 252, 240, 0.9) 0%, rgba(226, 234, 226, 0.62) 34%, rgba(180, 196, 190, 0.28) 58%, transparent 74%);
+  filter: blur(18px);
+  opacity: 0;
+  animation: map-mist-drift var(--dur, 7s) ease-in-out var(--delay, 0s) infinite;
+  will-change: transform, opacity;
+}
+
+.map-mist:nth-child(1) { left: -16%; top: -10%; --drift-x: 80px;  --drift-y: 46px;  --dur: 7.4s; }
+.map-mist:nth-child(2) { left: 6%;   top: 22%;  --drift-x: 54px;  --drift-y: -38px; --dur: 8.6s; --delay: -1.8s; }
+.map-mist:nth-child(3) { left: 30%;  top: -14%; --drift-x: -46px; --drift-y: 52px;  --dur: 6.8s; --delay: -3.2s; }
+.map-mist:nth-child(4) { left: 52%;  top: 30%;  --drift-x: 60px;  --drift-y: -44px; --dur: 9.2s; --delay: -2.4s; }
+.map-mist:nth-child(5) { left: 70%;  top: -8%;  --drift-x: -66px; --drift-y: 40px;  --dur: 7.8s; --delay: -4.1s; }
+.map-mist:nth-child(6) { left: 42%;  top: 58%;  --drift-x: 38px;  --drift-y: -56px; --dur: 8.2s; --delay: -0.9s; }
+
+@keyframes map-mist-drift {
+  0%, 100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.82);
+  }
+  22% { opacity: 0.88; }
+  50% {
+    opacity: 0.56;
+    transform: translate(var(--drift-x, 30px), var(--drift-y, -20px)) scale(1.06);
+  }
+  76% { opacity: 0.82; }
+}
+
+.js .is-ready .map-mist {
+  animation: none;
+  opacity: 0;
+  transform: scale(1.55);
+  transition: transform 900ms ease, opacity 800ms ease;
+}
+
+.map-typography {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.map-text-effect {
+  position: absolute;
+  overflow: hidden;
+  opacity: 0;
+  transform-origin: center;
+  transition: opacity 160ms ease, transform 260ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.map-text-effect img {
+  position: absolute;
+  left: var(--image-left);
+  top: var(--image-top);
+  width: var(--image-width);
+  max-width: none;
+  height: auto;
+  user-select: none;
+}
+
+.map-english {
+  pointer-events: auto;
+}
+
+.map-english--title {
+  --image-width: 138.8889%;
+  --image-left: -18.75%;
+  --image-top: -40%;
+  left: 13.5%;
+  top: 7%;
+  width: 72%;
+  height: 17.5%;
+}
+
+.map-english--subtitle {
+  --image-width: 304.878%;
+  --image-left: -103.049%;
+  --image-top: -503.226%;
+  left: 33.8%;
+  top: 78%;
+  width: 32.8%;
+  height: 15.5%;
+}
+
+.map-label--rabbit {
+  --image-width: 1162.7907%;
+  --image-left: -174.4186%;
+  --image-top: -1389.655%;
+  left: 15%;
+  top: 80.6%;
+  width: 8.6%;
+  height: 5.8%;
+}
+
+.map-label--caterpillar {
+  --image-width: 689.6552%;
+  --image-left: -292.4138%;
+  --image-top: -1331.0345%;
+  left: 42.4%;
+  top: 77.2%;
+  width: 14.5%;
+  height: 5.8%;
+}
+
+.map-label--duchess {
+  --image-width: 588.2353%;
+  --image-left: -428.2353%;
+  --image-top: -1282.2581%;
+  left: 72.8%;
+  top: 79.5%;
+  width: 17%;
+  height: 6.2%;
+}
+
+.is-ready .map-english--title:hover {
+  opacity: 1;
+  filter: url(#map-title-warp);
+}
+
+.is-ready .map-english--subtitle:hover {
+  opacity: 1;
+  filter: url(#map-subtitle-warp);
+}
+
+.is-ready .map-frame:has(.hotspot--rabbit:is(:hover, :focus-visible)) .map-label--rabbit,
+.is-ready .map-frame:has(.hotspot--caterpillar:is(:hover, :focus-visible)) .map-label--caterpillar,
+.is-ready .map-frame:has(.hotspot--duchess:is(:hover, :focus-visible)) .map-label--duchess {
+  opacity: 1;
+  transform: scale(1.18);
+}
+
+.map-navigation {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hotspot {
+  position: absolute;
+  border-radius: 50%;
+  text-decoration: none;
+  pointer-events: auto;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 300ms ease, transform 350ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.hotspot-visual {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.hotspot-visual img {
+  position: absolute;
+  left: var(--image-left);
+  top: var(--image-top);
+  width: var(--image-width);
+  max-width: none;
+  height: auto;
+  user-select: none;
+}
+
+.js .hotspot {
+  opacity: 0;
+}
+
+.js .is-ready .hotspot {
+  opacity: 1;
+}
+
+.hotspot--rabbit {
+  --image-width: 355.87%;
+  --image-left: -17.44%;
+  --image-top: -65.9%;
+  left: 4.9%;
+  top: 31.5%;
+  width: 28.1%;
+  height: 47.8%;
+}
+
+.hotspot--caterpillar {
+  --image-width: 346.02%;
+  --image-left: -122.15%;
+  --image-top: -51.79%;
+  left: 35.3%;
+  top: 26.1%;
+  width: 28.9%;
+  height: 50.4%;
+}
+
+.hotspot--duchess {
+  --image-width: 358.42%;
+  --image-left: -242.29%;
+  --image-top: -66.67%;
+  left: 67.6%;
+  top: 31.8%;
+  width: 27.9%;
+  height: 47.7%;
+}
+
+.hotspot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  background: rgba(48, 52, 52, 0.62);
+  box-shadow: inset 0 0 36px rgba(25, 28, 29, 0.38);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+
+.hotspot.is-locked {
+  cursor: not-allowed;
+}
+
+.hotspot.is-locked::after {
+  opacity: 1;
+}
+
+.hotspot.is-locked .hotspot-visual {
+  filter: grayscale(1) brightness(0.76);
+}
+
+.hotspot::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  color: #f5d78b;
+  font-size: clamp(12px, 1.4vw, 20px);
+  font-weight: bold;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  text-shadow: 0 2px 5px #1d2020, 0 0 14px rgba(245, 215, 139, 0.48);
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 7px));
+  pointer-events: none;
+  transition: opacity 250ms ease, transform 250ms ease;
+}
+
+.hotspot.is-locked:hover::before,
+.hotspot.is-locked:focus-visible::before {
+  content: "未解锁";
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.hotspot.is-locked .hotspot-ring {
+  display: none;
+}
+
+.hotspot-ring {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(255, 231, 171, 0);
+  border-radius: inherit;
+  box-shadow: inset 0 0 30px rgba(255, 221, 145, 0);
+  transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.hotspot:hover,
+.hotspot:focus-visible {
+  z-index: 2;
+  transform: scale(1.06);
+}
+
+.hotspot:hover .hotspot-ring,
+.hotspot:focus-visible .hotspot-ring {
+  border-color: rgba(255, 231, 171, 0.9);
+  box-shadow:
+    inset 0 0 32px rgba(255, 221, 145, 0.14),
+    0 0 20px rgba(255, 220, 142, 0.28);
+}
+
+.hotspot:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 238, 193, 0.65);
+}
+
+.map-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: clamp(14px, 2vw, 24px) 0 0;
+  color: rgba(229, 214, 178, 0.72);
+  font-size: clamp(11px, 1.1vw, 14px);
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+.map-caption span {
+  width: clamp(22px, 4vw, 56px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(210, 182, 123, 0.48));
+}
+
+.map-caption span:last-child {
+  transform: rotate(180deg);
+}
+
+.svg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.firefly-field {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.firefly {
+  position: absolute;
+  left: var(--start-x);
+  top: var(--start-y);
+  width: var(--size);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ffe6a0;
+  box-shadow:
+    0 0 5px 2px rgba(255, 218, 124, 0.65),
+    0 0 16px 5px rgba(226, 177, 76, 0.24);
+  opacity: 0;
+  animation: firefly-drift var(--duration) ease-in-out var(--delay) infinite;
+  will-change: transform, opacity;
+}
+
+.flora-corner {
+  --mirror: scale(1);
+  position: fixed;
+  z-index: 0;
+  width: clamp(140px, 18vw, 280px);
+  aspect-ratio: 1;
+  opacity: 0.66;
+  pointer-events: none;
+}
+
+.flora-corner svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: var(--mirror);
+  transform-origin: 12px 12px;
+  animation: corner-sway 6s ease-in-out infinite;
+}
+
+.flora-corner--tl {
+  top: -22px;
+  left: -22px;
+}
+
+.flora-corner--tr {
+  --mirror: scaleX(-1);
+  top: -22px;
+  right: -22px;
+}
+
+.flora-corner--bl {
+  --mirror: scaleY(-1);
+  bottom: -22px;
+  left: -22px;
+}
+
+.flora-corner--br {
+  --mirror: scale(-1);
+  right: -22px;
+  bottom: -22px;
+}
+
+.flora-corner--tr svg,
+.flora-corner--bl svg {
+  animation-delay: -2.2s;
+}
+
+.flora-corner--br svg {
+  animation-delay: -4.1s;
+}
+
+.corner-petal {
+  position: absolute;
+  width: clamp(7px, 0.9vw, 13px);
+  height: clamp(11px, 1.4vw, 20px);
+  border: 1px solid rgba(127, 86, 80, 0.4);
+  border-radius: 70% 30% 65% 35%;
+  background: linear-gradient(145deg, #d8ada4, #b9817d);
+  opacity: 0;
+  animation: petal-drift 7s ease-in-out infinite;
+}
+
+.corner-petal--one {
+  left: 44%;
+  top: 32%;
+}
+
+.corner-petal--two {
+  left: 28%;
+  top: 45%;
+  animation-delay: -3.4s;
+  animation-duration: 8.5s;
+}
+
+@keyframes firefly-drift {
+  0%, 100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.55);
+  }
+  16% {
+    opacity: 0.9;
+  }
+  34% {
+    opacity: 0.45;
+    transform: translate(var(--drift-x), var(--drift-y)) scale(1);
+  }
+  52% {
+    opacity: 1;
+  }
+  72% {
+    opacity: 0.35;
+    transform: translate(var(--drift-x-two), var(--drift-y-two)) scale(0.72);
+  }
+  88% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes corner-sway {
+  0%, 100% { transform: var(--mirror) rotate(-1.5deg); }
+  50% { transform: var(--mirror) rotate(2deg); }
+}
+
+@keyframes petal-drift {
+  0%, 100% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  18% { opacity: 0.75; }
+  55% {
+    opacity: 0.55;
+    transform: translate(22px, 32px) rotate(145deg);
+  }
+  82% {
+    opacity: 0.7;
+    transform: translate(5px, 58px) rotate(260deg);
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 700px) {
+  body {
+    padding: 10px;
+  }
+
+  .map-frame {
+    border-radius: 3px;
+  }
+
+  .hotspot-ring {
+    inset: 2px;
+  }
+
+  .map-caption {
+    gap: 9px;
+    letter-spacing: 0.12em;
+  }
+
+  .flora-corner {
+    width: 130px;
+    opacity: 0.48;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .firefly-field,
+  .corner-petal {
+    display: none;
+  }
+
+  .is-ready .map-english--title:hover,
+  .is-ready .map-english--subtitle:hover,
+  .is-ready .map-frame:has(.hotspot--rabbit:is(:hover, :focus-visible)) .map-label--rabbit,
+  .is-ready .map-frame:has(.hotspot--caterpillar:is(:hover, :focus-visible)) .map-label--caterpillar,
+  .is-ready .map-frame:has(.hotspot--duchess:is(:hover, :focus-visible)) .map-label--duchess {
+    filter: none;
+    opacity: 0;
+    transform: none;
+  }
+
+  .flora-corner svg {
+    transform: var(--mirror);
+  }
+}
+
+/* 返回首页：保持水彩地图页的轻量导航 */
+.map-back {
+  position: fixed;
+  top: clamp(14px, 2.4vw, 30px);
+  left: clamp(14px, 2.4vw, 30px);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border: 1px solid rgba(197, 169, 112, 0.45);
+  border-radius: 999px;
+  background: rgba(23, 33, 41, 0.6);
+  color: rgba(229, 214, 178, 0.86);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+  transition: color 300ms ease, border-color 300ms ease, transform 300ms ease;
+}
+
+.map-back::before {
+  content: "←";
+  font-size: 15px;
+}
+
+.map-back:hover,
+.map-back:focus-visible {
+  color: #ffeec2;
+  border-color: rgba(244, 215, 155, 0.85);
+  transform: translateX(-3px);
+}

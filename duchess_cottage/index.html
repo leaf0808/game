@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#172129">
+  <title>公爵夫人的小屋 · Alice's Wonderland Journey</title>
+  <link rel="stylesheet" href="../shared/scene.css">
+  <link rel="stylesheet" href="../shared/transition.css">
+  <link rel="stylesheet" href="../shared/text-ripple.css">
+  <script>try{if(sessionStorage.getItem('wonderland.smoke-transition')==='arrive')document.documentElement.classList.add('smoke-arriving');}catch{}</script>
+  <script src="../shared/transition.js" defer></script>
+  <script src="../shared/text-ripple.js" defer></script>
+</head>
+<body>
+  <svg class="ripple-defs" aria-hidden="true">
+    <defs>
+      <filter id="nearby-water" x="-20%" y="-45%" width="140%" height="190%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015 0.12" numOctaves="1" seed="4" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <div class="smoke-transition" aria-hidden="true">
+    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
+    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
+    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
+  </div>
+
+  <main class="scene-shell">
+    <header class="scene-topbar">
+      <a class="back-link" href="../map.html">返回旅程地图</a>
+      <span>CHAPTER 03 / 03</span>
+    </header>
+
+    <article class="scene-card">
+      <div class="scene-visual scene-visual--duchess" aria-hidden="true">
+        <img src="../assets/ui/wonderland-map.png" alt="" draggable="false">
+      </div>
+
+      <section class="scene-copy">
+        <p class="scene-eyebrow">THE COTTAGE</p>
+        <h1>公爵夫人的小屋</h1>
+        <p class="scene-english-title">The Duchess's Cottage</p>
+        <p class="scene-description">玫瑰花沿着乡村小屋盛放，扑克牌士兵守在石子路旁。门后传来胡椒、汤锅与吵闹声，仙境的秩序在这里变得格外奇妙。</p>
+        <blockquote class="scene-quote">“在混乱之中，也别弄丢自己的方向。”</blockquote>
+        <div class="scene-actions">
+          <a class="primary-link" href="./roam.html">前往关卡</a>
+        </div>
+        <nav class="scene-progress" aria-label="场景进度">
+          <a href="../rabbit_hole/index.html" aria-label="第一站：兔子洞">01</a>
+          <span aria-hidden="true"></span>
+          <a href="../caterpillar_tree/index.html" aria-label="第二站：毛毛虫的树枝">02</a>
+          <span aria-hidden="true"></span>
+          <a href="./index.html" aria-current="page" aria-label="第三站：公爵夫人的小屋">03</a>
+        </nav>
+      </section>
+    </article>
+  </main>
+</body>
+</html>

@@ -50,17 +50,24 @@ for (let i = 0; i < DUST_COUNT; i++) {
 }
 
 /* --------------------------------------------------------------------------
-   点击 · 开始旅程 → map.html
+   点击 · 开始旅程 → 水雾涌起，抵达地图页后消散
    -------------------------------------------------------------------------- */
 const btn = document.getElementById('startBtn');
-const curtain = document.getElementById('curtain');
+const smoke = document.getElementById('smoke');
 let leaving = false;
 
 function goToMap() {
   if (leaving) return;
   leaving = true;
-  curtain.classList.add('is-on');
-  setTimeout(() => { window.location.href = 'map.html'; }, 760);
+
+  try {
+    sessionStorage.setItem('wonderland.smoke-transition', 'arrive');
+  } catch {
+    // 无法写入存储时，地图页会直接显示。
+  }
+
+  smoke.classList.add('is-active');
+  setTimeout(() => { window.location.href = 'map.html'; }, 820);
 }
 
 btn.addEventListener('click', (e) => { e.preventDefault(); goToMap(); });
