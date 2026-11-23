@@ -3198,9 +3198,32 @@ function init() {
   const q = new URLSearchParams(location.search);
   if (q.has('cam')) CONFIG.cam.distance = Math.max(1.5, Math.min(14, parseFloat(q.get('cam')) || CONFIG.cam.distance));
   const act = parseInt(q.get('act'), 10);
+  /* 调试：?bare=1 隐藏界面，?night=1 换成夜色灯光 —— 专门用来出首页主视觉 */
+  if (q.has('bare')) {
+    const back = document.getElementById('back'); if (back) back.style.display = 'none';
+    const hud = document.getElementById('hud'); if (hud) hud.style.display = 'none';
+  }
 
   world.player = makeAlice();
   loadChapter(act >= 1 && act <= 3 ? act - 1 : 0, false);
+
+  if (q.has('night')) {
+    const st = world.state;
+    st.scene.fog.color.setHex(0x1b2437);
+    st.scene.fog.density = 0.030;
+    st.scene.background = verticalGradient('#0a1020', '#2a3550');
+    st.scene.traverse((o) => {
+      if (o.isAmbientLight) { o.color.setHex(0x8ea4cc); o.intensity = 0.72; }
+      else if (o.isHemisphereLight) { o.color.setHex(0x30405f); o.groundColor.setHex(0x101722); o.intensity = 0.7; }
+      else if (o.isDirectionalLight) { o.color.setHex(0xa8c0e8); o.intensity = 0.16; }
+      else if (o.isSpotLight) { o.intensity = 0.22; }
+    });
+    /* 路心一点暖光，像洞里漏出来的灯 */
+    const p0 = world.player.position;
+    const glow = new THREE.PointLight(0xf0b46a, 1.5, 26, 2);
+    glow.position.set(p0.x, 2.4, p0.z - 7);
+    st.scene.add(glow);
+  }
   frame();
 }
 

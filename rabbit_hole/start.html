@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="color-scheme" content="dark">
+<title>爱丽丝 · 掉进兔子洞</title>
+<link rel="prefetch" href="./game.html">
+<link rel="prefetch" href="./assets/alice.js">
+<style>
+  :root {
+    --ink: #0a0f1c;
+    --cream: #f4ecd8;
+    --cream-dim: #cbc2ab;
+    --gold: #f2c866;
+    --gold-deep: #c9a24a;
+    --serif: "Songti SC", "STSong", "Noto Serif SC", Georgia, "Times New Roman", SimSun, serif;
+    --sans: "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #070b16;
+    color: var(--cream);
+    font-family: var(--serif);
+    overflow: hidden;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---- 主视觉：程序化画出来的夜空 + 苔丘 + 洞口 ---- */
+  #art {
+    position: fixed;
+    inset: 0;
+    background: #0a1020 center / cover no-repeat;
+    transform: scale(1.02);
+    transition: transform 6s ease, filter 1.2s ease;
+  }
+  body.loading #art { transform: scale(1.06); filter: brightness(.72) saturate(.9); }
+
+  /* 纸纹 + 压暗 + 暗角，三层叠出"印在纸上的画" */
+  #grain, #wash, #vig { position: fixed; inset: 0; pointer-events: none; }
+  #grain {
+    opacity: .34;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 220px 220px;
+  }
+  #wash {
+    background:
+      radial-gradient(70% 55% at 68% 74%, rgba(240,180,106,.10), rgba(0,0,0,0) 70%),
+      linear-gradient(180deg, rgba(6,9,18,.55) 0%, rgba(6,9,18,0) 26%, rgba(6,9,18,0) 62%, rgba(5,8,15,.72) 100%);
+  }
+  #vig {
+    background: radial-gradient(120% 100% at 50% 45%, rgba(0,0,0,0) 55%, rgba(4,6,12,.5) 100%);
+  }
+
+  /* ---- 版式 ---- */
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    grid-template-rows: 1fr auto 1fr;
+    padding: clamp(28px, 5vh, 64px) clamp(28px, 6vw, 96px);
+    pointer-events: none;
+  }
+
+  #logo {
+    align-self: center;
+    margin-top: -2vh;
+    max-width: 46vw;
+    text-shadow: 0 2px 26px rgba(0,0,0,.55);
+  }
+  #logo h1 {
+    margin: 0;
+    font-weight: 400;
+    font-size: clamp(56px, 8.4vw, 128px);
+    letter-spacing: .16em;
+    line-height: 1.05;
+    color: var(--cream);
+  }
+  #logo .sub {
+    margin: .5em 0 0 .2em;
+    font-size: clamp(20px, 2.5vw, 34px);
+    letter-spacing: .42em;
+    color: var(--cream);
+    opacity: .94;
+  }
+  #logo .rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 1.1em 0 .9em .2em;
+    width: min(420px, 34vw);
+    color: var(--gold);
+  }
+  #logo .rule i { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(242,200,102,0), rgba(242,200,102,.75), rgba(242,200,102,0)); }
+  #logo .rule svg { width: 12px; height: 12px; }
+  #logo .en {
+    margin: 0 0 0 .2em;
+    font-family: var(--sans);
+    font-size: clamp(10px, .95vw, 13px);
+    letter-spacing: .46em;
+    color: var(--cream-dim);
+  }
+
+  /* 右上角：自由漫游（做成参考站那种小胶囊） */
+  #roam {
+    position: fixed;
+    top: clamp(18px, 3vh, 34px);
+    right: clamp(20px, 4vw, 52px);
+    z-index: 4;
+    padding: 7px 14px;
+    border: 1px solid rgba(244,236,216,.22);
+    border-radius: 999px;
+    font-family: var(--sans);
+    font-size: 12px;
+    letter-spacing: .18em;
+    color: var(--cream-dim);
+    text-decoration: none;
+    background: rgba(10,14,26,.35);
+    backdrop-filter: blur(2px);
+    transition: .25s ease;
+    pointer-events: auto;
+  }
+  #roam:hover { color: var(--gold); border-color: rgba(242,200,102,.6); }
+
+  /* 提示：✦ 点击 · 开始旅程 */
+  #hint {
+    grid-row: 3;
+    align-self: end;
+    justify-self: center;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 2vh;
+    font-size: clamp(14px, 1.2vw, 17px);
+    letter-spacing: .34em;
+    color: var(--cream);
+    text-shadow: 0 2px 18px rgba(0,0,0,.6);
+    animation: breathe 3.2s ease-in-out infinite;
+    transition: opacity .5s ease;
+  }
+  #hint svg { width: 15px; height: 15px; filter: drop-shadow(0 0 8px rgba(242,200,102,.75)); }
+  @keyframes breathe { 0%,100% { opacity: .62; } 50% { opacity: 1; } }
+
+  #note {
+    position: fixed;
+    left: 50%;
+    bottom: clamp(10px, 1.6vh, 20px);
+    transform: translateX(-50%);
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: .16em;
+    color: rgba(203,194,171,.5);
+    transition: opacity .4s ease;
+  }
+
+  /* ---- 载入层：一行引文 + 细进度条 + 百分比 ---- */
+  /* 载入层跟标题同一条左对齐线，落在左侧空白的夜空上 */
+  #load {
+    position: fixed;
+    left: clamp(28px, 6vw, 96px);
+    top: 58%;
+    width: min(470px, 42vw);
+    text-align: left;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .6s ease;
+  }
+  /* 载入层背后压一小片暗晕，文字才不会被草地吃掉 */
+  #load::before {
+    content: '';
+    position: absolute;
+    inset: -60px -70px -40px;
+    z-index: -1;
+    background: radial-gradient(70% 80% at 30% 50%, rgba(6,9,16,.5), rgba(6,9,16,0) 74%);
+    pointer-events: none;
+  }
+  body.loading #load { opacity: 1; visibility: visible; }
+  body.loading #hint { animation: none; opacity: 0; }
+  body.loading #note, body.loading #roam { opacity: 0; }
+  #roam { transition: opacity .4s ease, color .25s ease, border-color .25s ease; }
+
+  #intro {
+    margin: 0 0 30px;
+    font-size: clamp(15px, 1.35vw, 19px);
+    letter-spacing: .2em;
+    line-height: 1.9;
+    color: var(--cream);
+    text-shadow: 0 2px 18px rgba(0,0,0,.75);
+  }
+  #track {
+    position: relative;
+    height: 1px;
+    background: rgba(244,236,216,.18);
+  }
+  #fill {
+    position: absolute; left: 0; top: 0; height: 1px; width: 0%;
+    background: linear-gradient(90deg, rgba(242,200,102,.35), var(--gold));
+    transition: width .18s linear;
+  }
+  #tip {
+    position: absolute; top: 50%; left: 0%;
+    width: 13px; height: 13px;
+    margin: -6.5px 0 0 -6.5px;
+    transition: left .18s linear;
+    filter: drop-shadow(0 0 9px rgba(242,200,102,.9));
+  }
+  #pct {
+    margin-top: 20px;
+    font-family: var(--sans);
+    font-size: 12px;
+    letter-spacing: .3em;
+    color: var(--cream);
+    opacity: .78;
+  }
+
+  @media (max-width: 760px) {
+    #logo { max-width: 88vw; }
+    #logo .rule { width: 62vw; }
+  }
+</style>
+</head>
+<body>
+  <div id="art"></div>
+  <div id="wash"></div>
+  <div id="grain"></div>
+  <div id="vig"></div>
+
+  <div id="stage">
+    <div id="logo">
+      <h1>爱丽丝</h1>
+      <p class="sub">掉进兔子洞</p>
+      <div class="rule">
+        <i></i>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C13 7 17 11 24 12 17 13 13 17 12 24 11 17 7 13 0 12 7 11 11 7 12 0Z" fill="currentColor"/></svg>
+        <i></i>
+      </div>
+      <p class="en">ALICE'S ADVENTURES IN WONDERLAND</p>
+    </div>
+
+    <div id="hint">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C13 7 17 11 24 12 17 13 13 17 12 24 11 17 7 13 0 12 7 11 11 7 12 0Z" fill="#F2C866"/></svg>
+      <span>点击 · 开始旅程</span>
+    </div>
+  </div>
+
+  <a id="roam" href="./roam.html">自由漫游</a>
+  <div id="note">建议在电脑上游玩 · 使用键盘 W A S D</div>
+
+  <div id="load">
+    <p id="intro">有一道兔子洞，比想象中更深。</p>
+    <div id="track">
+      <div id="fill"></div>
+      <svg id="tip" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C13 7 17 11 24 12 17 13 13 17 12 24 11 17 7 13 0 12 7 11 11 7 12 0Z" fill="#F2C866"/></svg>
+    </div>
+    <div id="pct">正在准备画面 · 0%</div>
+  </div>
+
+<script>
+/* ============================================================================
+   首页主视觉：整张画都是用 canvas 画出来的（和游戏里一样，不依赖任何图片素材）
+   ----------------------------------------------------------------------------
+   构图对齐参考站：左边留空给标题，右边是一颗"长满苔与花的小山丘"，
+   丘顶站着一个很小的背影、一只白兔，丘腰有一个透出暖光的洞。
+   所有随机都走固定种子 —— 每次打开看到的都是同一张画。
+   ========================================================================== */
+(function paintArt() {
+  const W = 1600, H = 900;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+
+  let seed = 20261123;
+  const rnd = (a, b) => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return (a === undefined ? 0 : a) + (seed / 4294967296) * ((b === undefined ? 1 : b) - (a === undefined ? 0 : a));
+  };
+  const pick = (arr) => arr[Math.floor(rnd(0, arr.length)) % arr.length];
+  const rgba = (hex, a) => {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  };
+  const wash = (x, y, r, col, a) => {
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, rgba(col, a));
+    rg.addColorStop(1, rgba(col, 0));
+    g.fillStyle = rg;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  };
+
+  /* ---- 夜空：竖向渐变 + 大块水彩渍 ---- */
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#070c18');
+  sky.addColorStop(0.42, '#111a2e');
+  sky.addColorStop(0.72, '#1d2841');
+  sky.addColorStop(1, '#2a3550');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < 30; i++) {
+    wash(rnd(-120, W + 120), rnd(-80, H * 0.85), rnd(140, 460),
+      pick(['#1a2740', '#22304d', '#2b3a58', '#0d162a', '#334260']), rnd(0.08, 0.16));
+  }
+  /* 斜着的一条淡银河带 */
+  g.save();
+  g.translate(W * 0.52, H * 0.30);
+  g.rotate(-0.32);
+  const band = g.createLinearGradient(0, -130, 0, 130);
+  band.addColorStop(0, 'rgba(150,180,220,0)');
+  band.addColorStop(0.5, 'rgba(160,190,228,0.075)');
+  band.addColorStop(1, 'rgba(150,180,220,0)');
+  g.fillStyle = band; g.fillRect(-1000, -130, 2000, 260);
+  g.restore();
+
+  /* ---- 星：细点点 + 少量四角星 ---- */
+  for (let i = 0; i < 240; i++) {
+    const x = rnd(0, W), y = rnd(0, H * 0.82);
+    const a = rnd(0.12, 0.5) * (1 - y / H * 0.45);
+    g.fillStyle = 'rgba(238,240,230,' + a.toFixed(3) + ')';
+    g.beginPath(); g.arc(x, y, rnd(0.5, 1.5), 0, 7); g.fill();
+  }
+  function star4(x, y, r, rot, a) {
+    const glow = g.createRadialGradient(x, y, 0, x, y, r * 4.2);
+    glow.addColorStop(0, 'rgba(242,200,102,' + (a * 0.26).toFixed(3) + ')');
+    glow.addColorStop(1, 'rgba(242,200,102,0)');
+    g.fillStyle = glow;
+    g.beginPath(); g.arc(x, y, r * 4.2, 0, 7); g.fill();
+    g.save();
+    g.translate(x, y); g.rotate(rot);
+    g.beginPath();
+    g.moveTo(0, -r);
+    g.quadraticCurveTo(r * 0.14, -r * 0.14, r, 0);
+    g.quadraticCurveTo(r * 0.14, r * 0.14, 0, r);
+    g.quadraticCurveTo(-r * 0.14, r * 0.14, -r, 0);
+    g.quadraticCurveTo(-r * 0.14, -r * 0.14, 0, -r);
+    g.closePath();
+    g.fillStyle = 'rgba(246,214,138,' + a.toFixed(3) + ')';
+    g.fill();
+    g.restore();
+  }
+  const stars = [
+    [1280, 96, 9], [980, 176, 6], [1462, 262, 7], [742, 88, 5], [520, 210, 4],
+    [1180, 330, 5], [360, 96, 7], [1690, 420, 6], [860, 430, 4], [1500, 60, 5],
+    [240, 300, 5], [640, 330, 4],
+  ];
+  stars.forEach((s) => star4(s[0], s[1], s[2], rnd(-0.2, 0.2), rnd(0.5, 0.95)));
+
+  /* ---- 小星球（山丘） ---- */
+  const HX = 1108, HY = 566, RX = 500, RY = 356;
+
+  /* 边缘不规则：按角度抖动半径画成闭合路径 */
+  function hillPath(jitter, scale) {
+    const pts = [];
+    const n = 128;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2;
+      const k = 1 + Math.sin(a * 3 + 1.2) * jitter + Math.sin(a * 7 + 0.4) * jitter * 0.5;
+      pts.push([HX + Math.cos(a) * RX * k * scale, HY + Math.sin(a) * RY * k * scale]);
+    }
+    g.beginPath();
+    g.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < n; i++) g.lineTo(pts[i][0], pts[i][1]);
+    g.closePath();
+    return pts;
+  }
+
+  /* 外圈一层很淡的月光晕 */
+  const halo = g.createRadialGradient(HX, HY, RY * 0.85, HX, HY, RX * 1.25);
+  halo.addColorStop(0, 'rgba(206,214,196,0.10)');
+  halo.addColorStop(1, 'rgba(206,214,196,0)');
+  g.fillStyle = halo;
+  g.beginPath(); g.arc(HX, HY, RX * 1.25, 0, 7); g.fill();
+
+  /* 山体三层：暗底 → 中绿 → 顶部受光 */
+  hillPath(0.03, 1.0); g.fillStyle = '#243021'; g.fill();
+  g.save(); hillPath(0.03, 1.0); g.clip();
+  wash(HX - 120, HY - 40, 520, '#33402c', 0.85);
+  wash(HX + 140, HY + 120, 520, '#1d271c', 0.8);
+  /* 顶部受光带 */
+  wash(HX + 20, HY - 300, 620, '#6a7a48', 0.55);
+  wash(HX - 200, HY - 210, 420, '#586a3c', 0.5);
+  /* 苔斑 */
+  for (let i = 0; i < 90; i++) {
+    const a = rnd(Math.PI * 1.02, Math.PI * 1.98);
+    const r = rnd(0.42, 0.96);
+    wash(HX + Math.cos(a) * RX * r, HY + Math.sin(a) * RY * r, rnd(24, 78),
+      pick(['#41522f', '#4d6036', '#37472a', '#5a6b40']), rnd(0.25, 0.5));
+  }
+  /* 草叶：沿上半圈铺一层短笔触 */
+  for (let i = 0; i < 1400; i++) {
+    const a = rnd(Math.PI * 0.98, Math.PI * 2.02);
+    const r = rnd(0.18, 0.98);
+    const x = HX + Math.cos(a) * RX * r;
+    const y = HY + Math.sin(a) * RY * r;
+    if (y > HY + RY * 0.15) continue;
+    const len = rnd(4, 12);
+    g.strokeStyle = rgba(pick(['#7b8c55', '#66784a', '#8d9c63', '#56663e']), rnd(0.25, 0.6));
+    g.lineWidth = rnd(0.7, 1.5);
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + rnd(-3, 3), y - len * 0.6, x + rnd(-5, 5), y - len);
+    g.stroke();
+  }
+  /* 小白花 */
+  for (let i = 0; i < 70; i++) {
+    const a = rnd(Math.PI * 1.0, Math.PI * 2.0);
+    const r = rnd(0.2, 0.95);
+    const x = HX + Math.cos(a) * RX * r;
+    const y = HY + Math.sin(a) * RY * r;
+    if (y > HY + RY * 0.2) continue;
+    const rad = rnd(1.6, 3.2);
+    for (let k = 0; k < 5; k++) {
+      const t = k / 5 * Math.PI * 2;
+      g.fillStyle = 'rgba(244,238,222,' + rnd(0.5, 0.85).toFixed(2) + ')';
+      g.beginPath();
+      g.ellipse(x + Math.cos(t) * rad * 0.8, y + Math.sin(t) * rad * 0.8, rad * 0.55, rad * 0.4, t, 0, 7);
+      g.fill();
+    }
+    g.fillStyle = 'rgba(242,200,102,.85)';
+    g.beginPath(); g.arc(x, y, rad * 0.3, 0, 7); g.fill();
+  }
+  /* 坡面上的几块碎石 */
+  for (let i = 0; i < 12; i++) {
+    const a = rnd(Math.PI * 1.1, Math.PI * 1.9);
+    const r = rnd(0.35, 0.9);
+    const x = HX + Math.cos(a) * RX * r, y = HY + Math.sin(a) * RY * r;
+    g.fillStyle = rgba(pick(['#575446', '#66614f', '#413f34']), rnd(0.5, 0.85));
+    g.beginPath(); g.ellipse(x, y, rnd(7, 18), rnd(4, 10), rnd(0, 3), 0, 7); g.fill();
+  }
+
+  /* 丘底沉进夜色 */
+  const foot = g.createLinearGradient(0, HY + RY * 0.42, 0, HY + RY * 1.28);
+  foot.addColorStop(0, 'rgba(10,15,26,0)');
+  foot.addColorStop(0.75, 'rgba(9,13,22,.62)');
+  foot.addColorStop(1, 'rgba(8,12,22,1)');
+  g.fillStyle = foot; g.fillRect(HX - RX * 1.3, HY - RY, RX * 2.6, RY * 2.2);
+  g.restore();
+
+  /* 轮廓线：一道极淡的墨边 */
+  hillPath(0.03, 1.0);
+  g.strokeStyle = 'rgba(8,11,18,.34)'; g.lineWidth = 2.2; g.stroke();
+  /* 顶缘的月光高光：用 shadowBlur 糊成一道软边，别画成硬描边 */
+  g.save();
+  g.shadowColor = 'rgba(226,222,190,.55)';
+  g.shadowBlur = 16;
+  g.strokeStyle = 'rgba(226,222,190,.30)';
+  g.lineWidth = 2.6;
+  g.beginPath();
+  g.ellipse(HX, HY + 4, RX * 0.995, RY * 0.995, 0, Math.PI * 1.06, Math.PI * 1.94);
+  g.stroke();
+  g.restore();
+
+  /* ---- 兔子洞：嵌进坡面的黑洞口，深处透出一点暖光 ---- */
+  const bx = HX - 138, by = HY + 46;
+  const HRX = 74, HRY = 54;
+
+  /* 洞外一层很淡的光晕（也把周围的草照亮一点） */
+  const holeGlow = g.createRadialGradient(bx, by, 0, bx, by, 230);
+  holeGlow.addColorStop(0, 'rgba(240,176,104,0.22)');
+  holeGlow.addColorStop(0.5, 'rgba(226,150,86,0.08)');
+  holeGlow.addColorStop(1, 'rgba(226,150,86,0)');
+  g.fillStyle = holeGlow;
+  g.beginPath(); g.arc(bx, by, 230, 0, 7); g.fill();
+
+  /* 被翻起来的土沿：沿洞口上缘铺一圈深土色 */
+  for (let i = 0; i < 34; i++) {
+    const a = rnd(-Math.PI * 0.06, Math.PI * 1.06);
+    const rr = rnd(1.02, 1.2);
+    const x = bx + Math.cos(a) * HRX * rr, y = by + Math.sin(a) * HRY * rr;
+    g.fillStyle = rgba(pick(['#3c3826', '#4a442e', '#2f2d20']), rnd(0.5, 0.85));
+    g.beginPath(); g.ellipse(x, y, rnd(12, 26), rnd(8, 15), rnd(0, 3), 0, 7); g.fill();
+  }
+
+  /* 洞口本体：几乎全黑，只用一点点暖色分出"里面还有路" */
+  g.save();
+  g.beginPath(); g.ellipse(bx, by, HRX, HRY, 0, 0, 7);
+  g.fillStyle = '#04060a'; g.fill();
+  g.clip();
+  const inner = g.createRadialGradient(bx + 4, by + 34, 4, bx + 4, by + 34, 96);
+  inner.addColorStop(0, 'rgba(238,176,108,0.55)');
+  inner.addColorStop(0.5, 'rgba(196,120,64,0.14)');
+  inner.addColorStop(1, 'rgba(196,120,64,0)');
+  g.fillStyle = inner;
+  g.beginPath(); g.ellipse(bx + 4, by + 30, 96, 84, 0, 0, 7); g.fill();
+  g.restore();
+  /* 洞口边缘一道细暖边，别让黑块像贴上去的 */
+  g.strokeStyle = 'rgba(232,186,124,.22)'; g.lineWidth = 1.6;
+  g.beginPath(); g.ellipse(bx, by, HRX, HRY, 0, 0, 7); g.stroke();
+
+  /* 洞口的草向外倒伏一点，读作"被什么钻过" */
+  for (let i = 0; i < 26; i++) {
+    const a = rnd(Math.PI * 0.05, Math.PI * 0.95);
+    const x = bx + Math.cos(a) * (HRX + rnd(2, 16));
+    const y = by + Math.sin(a) * (HRY + rnd(2, 12));
+    g.strokeStyle = rgba(pick(['#7b8c55', '#66784a', '#8d9c63']), rnd(0.3, 0.6));
+    g.lineWidth = rnd(0.8, 1.6);
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + rnd(-2, 2), y - rnd(8, 18), x + Math.cos(a) * rnd(6, 16), y - rnd(12, 26));
+    g.stroke();
+  }
+
+  /* 洞口飘出来的几缕雾 */
+  for (let i = 0; i < 8; i++) {
+    wash(bx + rnd(-46, 46), by - rnd(6, 60), rnd(26, 62), '#f4e6c8', rnd(0.04, 0.10));
+  }
+
+  /* ---- 蘑菇（洞口两侧） ---- */
+  function mushroom(x, y, r) {
+    g.fillStyle = 'rgba(16,18,16,.85)';
+    g.beginPath(); g.ellipse(x, y + r * 0.1, r * 1.15, r * 0.3, 0, 0, 7); g.fill();
+    g.fillStyle = '#b9ad90';
+    g.beginPath();
+    g.moveTo(x - r * 0.16, y);
+    g.quadraticCurveTo(x - r * 0.1, y - r * 0.75, x + r * 0.02, y - r * 0.85);
+    g.quadraticCurveTo(x + r * 0.14, y - r * 0.7, x + r * 0.16, y);
+    g.closePath(); g.fill();
+    const cap = g.createLinearGradient(x - r, y - r * 1.4, x + r, y - r * 0.6);
+    cap.addColorStop(0, '#b87157');
+    cap.addColorStop(0.55, '#96543f');
+    cap.addColorStop(1, '#6d3f33');
+    g.fillStyle = cap;
+    g.beginPath();
+    g.ellipse(x, y - r * 0.86, r * 0.95, r * 0.62, 0, Math.PI, Math.PI * 2);
+    g.fill();
+    for (let i = 0; i < 5; i++) {
+      const t = rnd(Math.PI * 1.15, Math.PI * 1.85);
+      g.fillStyle = 'rgba(244,238,222,' + rnd(0.55, 0.85).toFixed(2) + ')';
+      g.beginPath();
+      g.ellipse(x + Math.cos(t) * r * 0.6, y - r * 0.86 + Math.sin(t) * r * 0.42, r * 0.14, r * 0.1, t, 0, 7);
+      g.fill();
+    }
+    g.strokeStyle = 'rgba(24,22,18,.5)'; g.lineWidth = 1.4;
+    g.beginPath(); g.ellipse(x, y - r * 0.86, r * 0.95, r * 0.62, 0, Math.PI, Math.PI * 2); g.stroke();
+  }
+  mushroom(bx - 112, by + 74, 42);
+  mushroom(bx - 62, by + 92, 27);
+  mushroom(bx + 104, by + 64, 36);
+  mushroom(bx + 146, by + 82, 23);
+
+  /* ---- 老橡树：从山丘右侧斜伸出来 ---- */
+  g.save();
+  g.translate(HX + 236, HY - 52);
+  g.rotate(-0.12);
+  g.scale(0.78, 0.78);
+  const trunkG = g.createLinearGradient(-30, 0, 34, 0);
+  trunkG.addColorStop(0, '#232b1e');
+  trunkG.addColorStop(0.6, '#3a4531');
+  trunkG.addColorStop(1, '#4b5738');
+  g.fillStyle = trunkG;
+  g.beginPath();
+  g.moveTo(-28, 40);
+  g.quadraticCurveTo(-34, -80, -18, -190);
+  g.quadraticCurveTo(-8, -250, 4, -300);
+  g.lineTo(26, -296);
+  g.quadraticCurveTo(20, -210, 30, -120);
+  g.quadraticCurveTo(38, -20, 34, 40);
+  g.closePath();
+  g.fill();
+  /* 枝 */
+  g.strokeStyle = '#333d2a'; g.lineCap = 'round';
+  g.lineWidth = 9;
+  g.beginPath(); g.moveTo(4, -250); g.quadraticCurveTo(-60, -286, -120, -300); g.stroke();
+  g.lineWidth = 7;
+  g.beginPath(); g.moveTo(12, -276); g.quadraticCurveTo(70, -320, 140, -318); g.stroke();
+  /* 叶团 */
+  const spots = [[-120, -312, 78], [20, -336, 96], [130, -330, 74], [-40, -300, 64], [90, -300, 58]];
+  spots.forEach(([px, py, pr]) => {
+    for (let i = 0; i < 46; i++) {
+      const a = rnd(0, Math.PI * 2), rr = rnd(0, pr);
+      g.fillStyle = rgba(pick(['#45532f', '#56683a', '#3a4728', '#647444']), rnd(0.35, 0.8));
+      g.beginPath();
+      g.ellipse(px + Math.cos(a) * rr, py + Math.sin(a) * rr * 0.72, rnd(9, 20), rnd(6, 13), rnd(0, 3), 0, 7);
+      g.fill();
+    }
+    wash(px - pr * 0.2, py - pr * 0.35, pr * 0.9, '#8b9a63', 0.12);
+  });
+  g.restore();
+
+  /* ---- 丘顶：爱丽丝的背影 ---- */
+  (function alice() {
+    const x = HX + 6, y = HY - 128;   // 脚底
+    const s = 1.0;
+    g.save();
+    g.translate(x, y);
+    /* 影子 */
+    g.fillStyle = 'rgba(8,11,16,.5)';
+    g.beginPath(); g.ellipse(0, 2, 26 * s, 7 * s, 0, 0, 7); g.fill();
+    /* 腿 */
+    g.strokeStyle = '#e7dfd0'; g.lineWidth = 3.2 * s; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(-4 * s, -2); g.lineTo(-5 * s, -22 * s); g.stroke();
+    g.beginPath(); g.moveTo(4 * s, -2); g.lineTo(6 * s, -22 * s); g.stroke();
+    g.strokeStyle = '#2b2a26'; g.lineWidth = 4 * s;
+    g.beginPath(); g.moveTo(-5 * s, -2); g.lineTo(-9 * s, 1); g.stroke();
+    g.beginPath(); g.moveTo(6 * s, -2); g.lineTo(10 * s, 1); g.stroke();
+    /* 裙 */
+    const skirt = g.createLinearGradient(-28 * s, -60 * s, 30 * s, -16 * s);
+    skirt.addColorStop(0, '#8fa5bd');
+    skirt.addColorStop(0.55, '#6f89a8');
+    skirt.addColorStop(1, '#4f6785');
+    g.fillStyle = skirt;
+    g.beginPath();
+    g.moveTo(-10 * s, -58 * s);
+    g.quadraticCurveTo(-30 * s, -34 * s, -26 * s, -20 * s);
+    g.quadraticCurveTo(0, -14 * s, 26 * s, -20 * s);
+    g.quadraticCurveTo(30 * s, -34 * s, 10 * s, -58 * s);
+    g.closePath(); g.fill();
+    /* 围裙白 */
+    g.fillStyle = 'rgba(238,232,214,.85)';
+    g.beginPath();
+    g.moveTo(-8 * s, -40 * s);
+    g.quadraticCurveTo(0, -37 * s, 8 * s, -40 * s);
+    g.quadraticCurveTo(6 * s, -22 * s, 0, -18 * s);
+    g.quadraticCurveTo(-6 * s, -22 * s, -8 * s, -40 * s);
+    g.fill();
+    /* 上身 */
+    g.fillStyle = '#7d96b2';
+    g.beginPath();
+    g.moveTo(-9 * s, -86 * s);
+    g.quadraticCurveTo(-12 * s, -62 * s, -10 * s, -56 * s);
+    g.lineTo(10 * s, -56 * s);
+    g.quadraticCurveTo(12 * s, -62 * s, 9 * s, -86 * s);
+    g.closePath(); g.fill();
+    /* 手臂 */
+    g.strokeStyle = '#e8dcc6'; g.lineWidth = 4.4 * s;
+    g.beginPath(); g.moveTo(-9 * s, -82 * s); g.quadraticCurveTo(-16 * s, -68 * s, -13 * s, -54 * s); g.stroke();
+    g.beginPath(); g.moveTo(9 * s, -82 * s); g.quadraticCurveTo(16 * s, -68 * s, 13 * s, -54 * s); g.stroke();
+    /* 头 + 金发 */
+    g.fillStyle = '#ecd9bd';
+    g.beginPath(); g.arc(0, -96 * s, 9.5 * s, 0, 7); g.fill();
+    const hair = g.createLinearGradient(-12 * s, -112 * s, 12 * s, -86 * s);
+    hair.addColorStop(0, '#e8c982');
+    hair.addColorStop(1, '#c9a457');
+    g.fillStyle = hair;
+    g.beginPath();
+    g.ellipse(0, -99 * s, 11.5 * s, 12 * s, 0, Math.PI * 0.02, Math.PI * 1.02);
+    g.fill();
+    /* 辫子 */
+    g.strokeStyle = '#d9b76c'; g.lineWidth = 4 * s; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(2 * s, -90 * s); g.quadraticCurveTo(8 * s, -80 * s, 6 * s, -70 * s); g.stroke();
+    /* 轮廓墨线 */
+    g.strokeStyle = 'rgba(24,28,34,.55)'; g.lineWidth = 1.6 * s;
+    g.beginPath();
+    g.moveTo(-10 * s, -58 * s);
+    g.quadraticCurveTo(-30 * s, -34 * s, -26 * s, -20 * s);
+    g.quadraticCurveTo(0, -14 * s, 26 * s, -20 * s);
+    g.quadraticCurveTo(30 * s, -34 * s, 10 * s, -58 * s);
+    g.stroke();
+    g.restore();
+  })();
+
+  /* ---- 白兔（丘顶左前方，正回头看） ---- */
+  (function rabbit() {
+    const x = HX - 96, y = HY - 60;
+    g.save();
+    g.translate(x, y);
+    g.fillStyle = 'rgba(8,11,16,.45)';
+    g.beginPath(); g.ellipse(0, 3, 17, 5, 0, 0, 7); g.fill();
+    g.fillStyle = '#efe9dc';
+    g.beginPath(); g.ellipse(0, -12, 15, 12, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(9, -22, 9, 8, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(6, -34, 3.2, 8, -0.2, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(12, -34, 3.2, 8, 0.15, 0, 7); g.fill();
+    g.fillStyle = 'rgba(230,215,198,.9)';
+    g.beginPath(); g.ellipse(6, -34, 1.4, 5, -0.2, 0, 7); g.fill();
+    /* 怀表 */
+    g.fillStyle = '#e8bc6a';
+    g.beginPath(); g.arc(-8, -14, 4.6, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(120,86,34,.9)'; g.lineWidth = 1.1;
+    g.beginPath(); g.moveTo(-8, -14); g.lineTo(-8, -16.6); g.moveTo(-8, -14); g.lineTo(-6.2, -13); g.stroke();
+    g.strokeStyle = 'rgba(140,100,40,.8)'; g.lineWidth = 1;
+    g.beginPath(); g.arc(-8, -14, 4.2, 0, 7); g.stroke();
+    g.strokeStyle = 'rgba(24,22,18,.5)'; g.lineWidth = 1.2;
+    g.beginPath(); g.ellipse(0, -12, 15, 12, 0, 0, 7); g.stroke();
+    g.restore();
+  })();
+
+  /* ---- 前景：底部几片草影，压住画面 ---- */
+  for (let i = 0; i < 60; i++) {
+    const x = rnd(-40, W * 0.42);
+    const y = H + rnd(-10, 30);
+    const h = rnd(40, 130);
+    g.strokeStyle = 'rgba(6,9,15,' + rnd(0.3, 0.6).toFixed(2) + ')';
+    g.lineWidth = rnd(2, 5);
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + rnd(-30, 30), y - h * 0.6, x + rnd(-60, 40), y - h);
+    g.stroke();
+  }
+
+  document.getElementById('art').style.backgroundImage = 'url(' + cv.toDataURL('image/jpeg', 0.92) + ')';
+
+  /* 把主视觉的配色留给 CSS 用（提示条、进度条的高光） */
+  document.documentElement.style.setProperty('--art-accent', '#f2c866');
+})();
+
+/* ============================================================================
+   交互：点击 / 空格 → 载入层 → 进入关卡
+   ========================================================================== */
+(function gate() {
+  const intro = document.getElementById('intro');
+  const fill = document.getElementById('fill');
+  const tip = document.getElementById('tip');
+  const pct = document.getElementById('pct');
+  const lines = [
+    '有一道兔子洞，比想象里更深。',
+    '正在叫醒白兔……',
+    '正在把小路铺向远处……',
+  ];
+  let started = false;
+
+  function start() {
+    if (started) return;
+    started = true;
+    document.body.classList.add('loading');
+
+    const t0 = performance.now();
+    const total = 2400;
+    let idx = -1;
+    (function step(now) {
+      const k = Math.min(1, (now - t0) / total);
+      /* 前 90% 匀速、最后 10% 慢下来，读起来像真的在加载 */
+      const v = k < 0.9 ? k / 0.9 * 0.94 : 0.94 + (k - 0.9) / 0.1 * 0.06;
+      const p = Math.round(v * 100);
+      fill.style.width = p + '%';
+      tip.style.left = p + '%';
+      pct.textContent = '正在准备画面 · ' + p + '%';
+      const next = Math.min(lines.length - 1, Math.floor(k * 3));
+      if (next !== idx) { idx = next; intro.textContent = lines[idx]; }
+      if (k < 1) requestAnimationFrame(step);
+      else setTimeout(() => { if (!window.__stay) location.href = './game.html'; }, 260);
+    })(t0);
+  }
+
+  document.body.addEventListener('click', (e) => {
+    if (e.target.closest('a')) return;      // 右上角"自由漫游"照常跳
+    start();
+  });
+  addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); start(); }
+  });
+
+  /* 调试：?preview=1 直接停在载入界面（截图验收用），不会真的跳页 */
+  if (new URLSearchParams(location.search).has('preview')) {
+    start();
+    setTimeout(() => { window.__stay = true; }, 0);
+  }
+})();
+</script>
+</body>
+</html>
