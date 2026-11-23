@@ -158,6 +158,7 @@
     text-shadow: 0 1px 8px rgba(0,0,0,.7);
   }
   #chapter b { display: block; font-weight: 400; color: var(--paper); letter-spacing: .16em; }
+  #chapter { white-space: nowrap; }
 
   /* 通往下一处的进度条 */
   #trail {
@@ -247,8 +248,9 @@
   /* 体型状态图标（屏幕左上角）：三格，当前生效的高亮发光 */
   #sizes {
     position: fixed;
-    top: clamp(12px, 2.4vw, 22px);
-    right: clamp(14px, 3vw, 30px);
+    /* 文档要求：屏幕左上角（让开返回按钮，排在它下面） */
+    top: calc(clamp(12px, 2.4vw, 22px) + 46px);
+    left: clamp(14px, 3vw, 30px);
     z-index: 6;
     display: flex;
     gap: 8px;
@@ -278,7 +280,7 @@
   /* 悬浮提示文字 */
   .sizechip span {
     position: absolute;
-    top: 46px; right: 0;
+    top: 46px; left: 0;
     width: 172px;
     padding: 7px 9px;
     border: 1px solid rgba(232,220,191,.22);
@@ -2774,6 +2776,8 @@ const keys = Object.create(null);
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'KeyR') respawn();
+  if (e.code === 'Digit1' || e.code === 'Numpad1') useItem('potion');
+  if (e.code === 'Digit2' || e.code === 'Numpad2') useItem('cake');
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -2792,7 +2796,8 @@ canvas.addEventListener('pointermove', (e) => {
 addEventListener('pointerup', () => { dragging = false; });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
-  CONFIG.cam.distance = THREE.MathUtils.clamp(CONFIG.cam.distance + e.deltaY * 0.01, 3.5, 14);
+  /* S04：镜头距离以体型基准为主，滚轮只做 ± 微调 */
+  G.camZoom = THREE.MathUtils.clamp(G.camZoom - e.deltaY * 0.01, -2.5, 4.0);
 }, { passive: false });
 
 /* ============================================================================
@@ -2816,10 +2821,15 @@ function respawn() {
   refreshHpUI();
   G.iframe = 1.2;
   updateCamera(1);
-  reanchor();
   /* 机关门复位：存档点之后不该保留临时开启的状态 */
   for (const id in st.level.gates) gateOpen(st.level.gates[id], false);
-  for (const e of st.level.enemies) { e.state = 'patrol'; e.wpIndex = 0; e.alert = 0; }
+  for (const e of st.level.enemies) {
+    e.state = 'patrol';
+    e.lost = 0;
+    e.escaped = false;
+    e.obj.visible = true;
+    if (e.pts) e.i = nearestWaypoint(e, e.obj.position.x, e.obj.position.z);
+  }
   toast('回到存档点');
 }
 
@@ -2857,6 +2867,7 @@ function updatePlayer(dt) {
     if (d > st.radius - rad * 0.35) { const k = (st.radius - rad * 0.35) / d; p.x *= k; p.z *= k; }
   }
   pushOut(st.obstacles, p, rad);
+  collideLevel(p, rad);          // 门 / 矮门 / 移动石门 / 塌石堆
   p.y = 0;
 
   /* 朝向与走路时的轻微起伏 */
@@ -2872,12 +2883,39 @@ function updatePlayer(dt) {
   animateAlice();
 }
 
+/** 圆形碰撞挤出（单个） */
+function pushCircle(p, c, rad) {
+  const dx = p.x - c.x, dz = p.z - c.z;
+  const d = Math.hypot(dx, dz);
+  const min = c.r + rad;
+  if (d < min && d > 1e-4) {
+    const k = (min - d) / d;
+    p.x += dx * k;
+    p.z += dz * k;
+  }
+}
+
+/** 关卡机关碰撞：关着的门、矮门（体型不对时）、移动石门、塌石堆 */
+function collideLevel(p, rad) {
+  for (const id in LEVEL.gates) {
+    for (const c of LEVEL.gates[id].cols) if (!c.disabled) pushCircle(p, c, rad);
+  }
+  for (const id in LEVEL.lowDoors) {
+    for (const c of LEVEL.lowDoors[id].cols) if (!c.disabled) pushCircle(p, c, rad);
+  }
+  for (const sl of LEVEL.sliders) {
+    for (const c of sl.cols) pushCircle(p, c, rad);
+  }
+  for (const b of LEVEL.blockers) pushCircle(p, b, rad);
+}
+
 function updateCamera(dt) {
   const p = world.player.position;
   const yaw = world.camYaw, pitch = world.camPitch;
-  const horiz = CONFIG.cam.distance * Math.cos(pitch);
+  const dist = SIZE[G.size].cam + G.camZoom;     // S04
+  const horiz = dist * Math.cos(pitch);
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
-  const want = new THREE.Vector3(p.x - fx * horiz, p.y + 1.25 + CONFIG.cam.distance * Math.sin(pitch), p.z - fz * horiz);
+  const want = new THREE.Vector3(p.x - fx * horiz, p.y + 1.25 + dist * Math.sin(pitch), p.z - fz * horiz);
   camera.position.lerp(want, 1 - Math.exp(-CONFIG.cam.lerp * dt));
   /* 别让相机钻进地面 */
   camera.position.y = Math.max(camera.position.y, 0.9);
@@ -3267,18 +3305,20 @@ function scene0add(g) { if (LEVEL.host) LEVEL.host.scene.add(g); }
 /** AI08 移动门障碍：沿轨道往复滑动的石板，会挤压玩家 */
 function makeSlider(ax, az, bx, bz, w, h, period) {
   const g = new THREE.Group();
-  const slab = part(GEO.box, mat('rock', 2, 1, { color: 0xb0a68c }), [0, h / 2, 0], [w, h, 0.5]);
+  /* 局部 +Z = 轨道方向：石板的"宽度"要落在 Z 上、厚度落在 X 上，
+     这样它才是一堵横在路中间、沿自身宽度左右滑开的门板 */
+  const slab = part(GEO.box, mat('rock', 2, 1, { color: 0xb0a68c }), [0, h / 2, 0], [0.55, h, w]);
   withOutline(slab, 0.02);
   g.add(slab);
   /* 轨道：地上的凹槽 + 两端石墩 */
   const dx = bx - ax, dz = bz - az;
   const len = Math.hypot(dx, dz);
   const yaw = Math.atan2(dx, dz);
-  const rail = part(GEO.box, mat('caveFloor', 2, 1, { color: 0x8d8672 }), [(ax + bx) / 2, 0.06, (az + bz) / 2], [len + w * 0.6, 0.12, 0.7], null, [0, yaw, 0]);
+  const rail = part(GEO.box, mat('caveFloor', 2, 1, { color: 0x8d8672 }), [(ax + bx) / 2, 0.06, (az + bz) / 2], [0.7, 0.12, len + w * 0.6], null, [0, yaw, 0]);
   const railGroup = new THREE.Group();
   railGroup.add(rail);
   for (const s of [0, 1]) {
-    railGroup.add(part(GEO.box, mat('rock', 1, 1, { color: 0x9b9178 }), [s ? bx : ax, 0.5, s ? bz : az], [w * 0.5, 1.0, 0.9]));
+    railGroup.add(part(GEO.box, mat('rock', 1, 1, { color: 0x9b9178 }), [s ? bx : ax, 0.5, s ? bz : az], [1.1, 1.0, 1.1]));
   }
   g.position.set(ax, 0, az);
   g.rotation.y = yaw;
@@ -3677,6 +3717,254 @@ function updateSlider(s, dt) {
 }
 
 /* ============================================================================
+   19.5 关卡编排 —— 把模块 1-4 的零件摆进三幕
+   ----------------------------------------------------------------------------
+   幕 1 林间小路（教学）
+     存档点 → 药水 → 塌石矮门（只能缩小钻过去）→ 蛋糕
+     → 鸽子 + 蘑菇掩体（AI05）→ 老鼠（变大赶走，AI06）
+     → 存档点 → 重型开关 + 机关大门（P02/P04）→ 洞口
+   幕 2 兔子洞入口（机关）
+     移动石门（AI08）→ 蛋糕 → 重型开关 + 机关大门 → 洞顶鸽子
+   幕 3 洞穴大厅（综合）
+     泪池 + 螃蟹（AI07/G02）→ 桌上补药 → 出口矮门（缩小才能过）
+   ========================================================================== */
+
+/** 走廊参数 t → 世界坐标。side=±1 表示往路的左/右偏 off 米，yaw 是门的朝向 */
+function atT(st, t, side, off) {
+  const c = st.cor;
+  const idx = Math.max(0, Math.min(c.samples, Math.round(t * c.samples)));
+  const s = c.table[idx];
+  const k = (side || 0) * (off || 0);
+  return { x: s.x + s.sx * k, z: s.z + s.sz * k, yaw: Math.atan2(s.tx, s.tz), s, t };
+}
+
+/**
+ * 塌石横墙：在 (x,z) 处横断道路，中间留出宽 2*gapHalf 的洞。
+ * 石头同时进 obstacles（挡脚）和 blockers（挡敌人视线），
+ * 矮门自己那几条碰撞圆由 makeLowDoor 负责，所以这里不填中间那一段。
+ */
+function rubbleWall(st, x, z, yaw, halfLen, gapHalf) {
+  /* 石头按 1.15 m 间距自动排：墙越长节点越多，不会出现能侧身钻过去的缝 */
+  const n = Math.max(3, Math.ceil((halfLen - gapHalf) / 1.15));
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < n; i++) {
+      const f = i / (n - 1);
+      const off = side * (gapHalf + 0.7 + f * (halfLen - gapHalf - 0.7));
+      const px = x + Math.cos(yaw) * off, pz = z - Math.sin(yaw) * off;
+      const r = rnd(0.66, 0.98);
+      const rock = makeRock(r * 0.86);
+      rock.position.set(px, r * 0.3, pz);
+      rock.rotation.set(rnd(-0.2, 0.2), rnd(0, 6.28), rnd(-0.2, 0.2));
+      st.scene.add(rock);
+      st.scene.add(contactShadow(px, pz, r * 1.15, r * 0.95, 0.55));
+      const col = { x: px, z: pz, r: r * 0.9 };
+      st.obstacles.push(col);
+      LEVEL.blockers.push(col);
+      /* 石缝里塞两株草，别让石堆像刚堆的 */
+      if (i % 2) {
+        const blade = part(GEO.plane, flatMat(0x879662, { side: THREE.DoubleSide }),
+          [px + rnd(-0.5, 0.5), 0.45, pz + rnd(-0.5, 0.5)], [rnd(0.5, 0.8), rnd(0.6, 0.9), 1], [0, rnd(0, 3), rnd(-0.15, 0.15)]);
+        st.scene.add(blade);
+      }
+    }
+  }
+}
+
+/** 造一个敌人并摆到第一个巡逻点（updateEnemy 是从当前位置往外走的） */
+function spawnEnemy(cfg, pts, y) {
+  cfg.pts = pts;
+  cfg.y = y === undefined ? 0 : y;
+  const e = makeEnemy(cfg);
+  e.obj.position.set(pts[0][0], cfg.y, pts[0][1]);
+  e.obj.rotation.y = 0;
+  return e;
+}
+
+/* ---------------------------------------------------------------------------
+   幕 1 · 林间小路
+   -------------------------------------------------------------------------- */
+
+function decorateForest(st) {
+  const scene = st.scene;
+
+  /* G01：出生点前面就有一个存档点，玩家走两步就学会"碰到即存档" */
+  const p0 = atT(st, 0.075, -1, 2.2);
+  const sv0 = makeSavePoint(p0.x, p0.z);
+  scene.add(sv0.obj);
+  LEVEL.saves.push(sv0);
+
+  /* G03：药水放在路右侧，明摆着让人捡 */
+  const p1 = atT(st, 0.155, 1, 1.1);
+  const potion = makePickup('potion', p1.x, p1.z);
+  scene.add(potion.obj);
+  LEVEL.pickups.push(potion);
+
+  /* P03：整条路被塌石横断，中间只剩一道矮缝 —— 必须缩小钻过去 */
+  const p2 = atT(st, 0.33, 0, 0);
+  rubbleWall(st, p2.x, p2.z, p2.yaw, 6.0, 1.4);
+  makeLowDoor('forest_low', p2.x, p2.z, p2.yaw, 2.8);
+
+  /* G03：矮门另一侧是蛋糕，钻过来就能立刻变大 */
+  const p3 = atT(st, 0.44, -1, 1.2);
+  const cake = makePickup('cake', p3.x, p3.z);
+  scene.add(cake.obj);
+  LEVEL.pickups.push(cake);
+
+  /* AI05：鸽子在树冠下来回飞，下面正好有一朵大蘑菇可以躲 */
+  const p4 = atT(st, 0.55, 0, 0);
+  const p5 = atT(st, 0.63, 0, 0);
+  const shelter = makeShelter(atT(st, 0.585, 1, 2.6).x, atT(st, 0.585, 1, 2.6).z, 1.7, 'cap');
+  scene.add(shelter.obj);
+  LEVEL.shelters.push(shelter);
+  spawnEnemy({
+    kind: 'pigeon', obj: makePigeon(), fly: true,
+    sight: 11.5, fov: 2.6, speed: 3.2, chase: 5.6, dmg: 1, rate: 2.4,
+    phase: rnd(0, 6),
+  }, [[p4.x, p4.z], [p5.x, p5.z]], 5.4);
+
+  /* AI06：老鼠在路面来回窜，变大之后它会直接逃 */
+  const p6 = atT(st, 0.70, 0, 0);
+  spawnEnemy({
+    kind: 'mouse', obj: makeMouse(),
+    sight: 7.0, fov: 2.9, speed: 2.3, chase: 3.6, dmg: 1, rate: 1.8,
+    phase: rnd(0, 6),
+  }, [[p6.x - 2.6, p6.z + 1.4], [p6.x + 2.8, p6.z - 1.2]], 0);
+
+  /* 老鼠之后再来一个存档点（顺便把体型收回正常、道具归还） */
+  const p7 = atT(st, 0.80, 1, 2.2);
+  const sv1 = makeSavePoint(p7.x, p7.z);
+  scene.add(sv1.obj);
+  LEVEL.saves.push(sv1);
+
+  /* P02/P04：路尽头一座大门，只有巨大体型踩得动旁边的重型开关；
+     离开开关 5 秒门重新闭合，所以得一口气冲过去 */
+  const p8 = atT(st, 0.885, 1, 2.3);
+  const sw = makeSwitch('heavy', p8.x, p8.z);
+  sw.link = 'forest_gate';
+  scene.add(sw.obj);
+  LEVEL.switches.push(sw);
+
+  const p9 = atT(st, 0.94, 0, 0);
+  const gate = makeGate('forest_gate', p9.x, p9.z, p9.yaw, 7.4, 4.8, { autoClose: HEAVY_HOLD });
+  scene.add(gate.obj);
+  rubbleWall(st, p9.x, p9.z, p9.yaw, 5.6, 3.8);
+
+  /* 备用蛋糕：万一玩家在存档点后被重置成正常体型，这里还能再变大 */
+  const p10 = atT(st, 0.86, -1, 1.3);
+  const cake2 = makePickup('cake', p10.x, p10.z);
+  scene.add(cake2.obj);
+  LEVEL.pickups.push(cake2);
+}
+
+/* ---------------------------------------------------------------------------
+   幕 2 · 兔子洞入口
+   -------------------------------------------------------------------------- */
+
+function decorateHole(st) {
+  const scene = st.scene;
+
+  const p0 = atT(st, 0.10, 1, 1.8);
+  const sv0 = makeSavePoint(p0.x, p0.z);
+  scene.add(sv0.obj);
+  LEVEL.saves.push(sv0);
+
+  /* AI08：砖路上来回滑动的石门，堵在中间 —— 看准它滑开再过去，别停在门缝里 */
+  const slider = makeSlider(-4.8, -6.4, 4.8, -6.4, 2.6, 2.8, 3.8);
+  scene.add(slider.obj);
+  scene.add(slider.railGroup);
+  LEVEL.sliders.push(slider);
+
+  /* G03：石门之后给蛋糕，为重开关做准备 */
+  const p1 = atT(st, 0.62, -1, 1.2);
+  const cake = makePickup('cake', p1.x, p1.z);
+  scene.add(cake.obj);
+  LEVEL.pickups.push(cake);
+  const p1b = atT(st, 0.55, 1, 1.2);
+  const potion = makePickup('potion', p1b.x, p1b.z);
+  scene.add(potion.obj);
+  LEVEL.pickups.push(potion);
+
+  /* 洞顶的鸽子：越靠近洞口越容易俯冲 */
+  const m1 = atT(st, 0.50, 0, 0), m2 = atT(st, 0.80, 0, 0);
+  const shelter = makeShelter(atT(st, 0.66, 1, 3.0).x, atT(st, 0.66, 1, 3.0).z, 1.8, 'log');
+  scene.add(shelter.obj);
+  LEVEL.shelters.push(shelter);
+  spawnEnemy({
+    kind: 'pigeon', obj: makePigeon(), fly: true,
+    sight: 13, fov: 2.4, speed: 3.4, chase: 6.0, dmg: 1, rate: 2.2,
+    phase: rnd(0, 6),
+  }, [[m1.x, m1.z], [m2.x, m2.z]], 6.2);
+
+  /* P02/P04：洞口前的大门，重型开关在右侧石堆旁 */
+  const p2 = atT(st, 0.78, 1, 2.6);
+  const sw = makeSwitch('heavy', p2.x, p2.z);
+  sw.link = 'hole_gate';
+  scene.add(sw.obj);
+  LEVEL.switches.push(sw);
+
+  const p3 = atT(st, 0.885, 0, 0);
+  const gate = makeGate('hole_gate', p3.x, p3.z, p3.yaw, 8.4, 5.6, { autoClose: HEAVY_HOLD });
+  scene.add(gate.obj);
+  rubbleWall(st, p3.x, p3.z, p3.yaw, 6.4, 4.4);
+}
+
+/* ---------------------------------------------------------------------------
+   幕 3 · 洞穴大厅
+   -------------------------------------------------------------------------- */
+
+function decorateHall(st) {
+  const scene = st.scene;
+  const R = 23;
+
+  const sv0 = makeSavePoint(0, R - 13.5);
+  scene.add(sv0.obj);
+  LEVEL.saves.push(sv0);
+
+  /* G02：泪水池塘。浅水圈能蹚，深水圈对正常体型持续扣血、对巨人一击致命 */
+  const pond = makePond(-8.6, -3.4, 7.2, 5.6, 4.2, 3.1);
+  LEVEL.ponds.push(pond);
+
+  /* AI07：螃蟹绕着池塘岸边巡逻，下水会明显加速 */
+  /* 只沿池塘的西半圈巡逻：东岸贴着大厅中央的木桌，转过去会和桌子打架 */
+  const ring = [];
+  for (let i = 0; i < 3; i++) {
+    const a = 1.85 + i * 0.8;
+    ring.push([-8.6 + Math.cos(a) * 9.0, -3.4 + Math.sin(a) * 7.4]);
+  }
+  spawnEnemy({
+    kind: 'crab', obj: makeCrab(),
+    sight: 7.5, fov: 2.7, speed: 1.7, chase: 2.7, dmg: 1, rate: 1.9,
+    phase: rnd(0, 6),
+  }, ring, 0);
+
+  /* G03：桌上的两样东西放在桌子前方两侧（桌子本身是障碍，进不去） */
+  const cake = makePickup('cake', 2.4, 3.4);
+  scene.add(cake.obj);
+  LEVEL.pickups.push(cake);
+  const potion = makePickup('potion', -2.4, 3.4);
+  scene.add(potion.obj);
+  LEVEL.pickups.push(potion);
+
+  /* P01：出口前的轻型压力开关 —— 任意体型踩上去就卡住，石门升起后不再落下 */
+  const sw = makeSwitch('light', 3.6, -13.6);
+  sw.link = 'hall_gate';
+  sw.latch = true;
+  scene.add(sw.obj);
+  LEVEL.switches.push(sw);
+
+  /* P04：出口机关大门 */
+  const gate = makeGate('hall_gate', 0, -18.4, 0, 6.4, 5.2);
+  scene.add(gate.obj);
+
+  /* P03：门前一道矮缝，只有缩小才钻得过去（药水就放在旁边，不用猜） */
+  rubbleWall(st, 0, -16.2, 0, 12.0, 1.4);
+  makeLowDoor('hall_low', 0, -16.2, 0, 2.8);
+  const potion2 = makePickup('potion', -3.2, -14.2);
+  scene.add(potion2.obj);
+  LEVEL.pickups.push(potion2);
+}
+
+/* ============================================================================
    20. 模块 4 · 泪池判定 / 伤害死亡 / 存档点（G01-G04）
    ========================================================================== */
 
@@ -3740,7 +4028,7 @@ function updateSaves(dt) {
     sv.ring.forEach((m, i) => { m.position.y = Math.sin(world.elapsed * 2.4 + i) * 0.04; });
     if (on && sv.cool <= 0) {
       sv.cool = 6;
-      writeSave(world.chapter);
+      writeSave(world.chapter, p.x, p.z, world.camYaw);
       resetSizeAndItems();          // S05：存档点强制回正常体型
       flashEl('flash');
       toast('已记录存档点 · 体型回到正常，道具归还道具栏');
@@ -3884,8 +4172,15 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   world.elapsed += dt;
 
-  if (world.state && !world.fading) {
+  if (world.state && !world.fading && !G.paused) {
     updatePlayer(dt);
+    updateSizeAnim(dt);          // S02/S03 体型过渡
+    updatePuzzles(dt);           // P01-P05 开关与门
+    updatePond(dt);              // G02 泪池
+    updateSaves(dt);             // G01 存档点
+    updatePickups(dt);           // G03 道具
+    for (const e of LEVEL.enemies) updateEnemy(e, dt);   // AI01-AI07
+    for (const sl of LEVEL.sliders) updateSlider(sl, dt); // AI08
     world.state.update(dt, world.elapsed);
     /* 切幕后 0.8 秒内不判定终点，避免幕间状态还没落稳就连跳几幕 */
     if (world.elapsed - world.enterAt > 0.8 && world.state.reachedEnd()) advance();
@@ -3919,8 +4214,63 @@ function init() {
   SPR.grassBill = billboardTex('grass');
   SPR.flowerBill = billboardTex('flower');
 
+  const q = new URLSearchParams(location.search);
+  const qAct = parseInt(q.get('act'), 10);
+
+  G.save = readSave();
+  if (G.save && G.save.hp) G.hp = G.save.hp;
+  if (q.has('cam')) G.camZoom = Math.max(-2.5, Math.min(4, parseFloat(q.get('cam')) || 0));
+
   world.player = makeAlice();
-  loadChapter(0, false);
+  /* 调试：?act=2 直接进第二幕（验收用），正常游玩不带参数 */
+  loadChapter(qAct >= 1 && qAct <= 3 ? qAct - 1 : (G.save && G.save.chapter != null ? G.save.chapter : 0), false);
+
+  /* 续上次的存档点位置：存档里记了坐标，直接放回去 */
+  if (G.save && G.save.x !== undefined) {
+    world.player.position.set(G.save.x, 0, G.save.z);
+    world.camYaw = G.save.yaw || 0;
+    updateCamera(1);
+  }
+  refreshSizeUI();
+  refreshInvUI();
+  refreshHpUI();
+
+  /* 验收用：?diag=1 在左下角实时打印关卡统计（不影响正常游玩） */
+  /* 调试：?at=x,z 直接把人放到指定位置（配合 ?diag 无头验收机关） */
+  if (q.has('at')) {
+    const xy = (q.get('at') || '').split(',').map(parseFloat);
+    if (xy.length === 2 && !isNaN(xy[0]) && !isNaN(xy[1])) {
+      world.player.position.set(xy[0], 0, xy[1]);
+      updateCamera(1);
+    }
+  }
+
+  /* 调试：?use=potion|cake 在 1.2 秒后自动用一次道具（验收体型切换） */
+  if (q.has('use')) {
+    const kind = q.get('use') === 'cake' ? 'cake' : 'potion';
+    setTimeout(() => useItem(kind), 1200);
+  }
+
+  /* 调试：?walk=8 自动按住 W 走 8 秒（配合 ?diag 做无头验收） */
+  const walkFor = parseFloat(q.get('walk') || '0');
+  if (walkFor > 0) setInterval(() => { keys.KeyW = world.elapsed < walkFor; }, 100);
+
+  if (q.has('diag')) {
+    const d = document.createElement('pre');
+    d.style.cssText = 'position:fixed;left:8px;bottom:118px;z-index:30;font:11px/1.5 monospace;color:#fff;background:rgba(0,0,0,.55);padding:6px 8px;white-space:pre-wrap;max-width:64vw;pointer-events:none';
+    document.body.appendChild(d);
+    setInterval(() => {
+      d.textContent = [
+        'ch=' + world.chapter + ' size=' + G.size + ' hp=' + G.hp + ' items=' + JSON.stringify(G.items) + ' paused=' + G.paused,
+        'pos=' + world.player.position.x.toFixed(1) + ',' + world.player.position.z.toFixed(1),
+        'gates=' + Object.keys(LEVEL.gates).join(',') + ' low=' + Object.keys(LEVEL.lowDoors).join(',') + ' saves=' + LEVEL.saves.length + ' ponds=' + LEVEL.ponds.length + ' sliders=' + LEVEL.sliders.length,
+        'pickups=' + LEVEL.pickups.map((x) => x.kind + '@' + x.x.toFixed(1) + ',' + x.z.toFixed(1) + (x.taken ? 'T' : 'o')).join(' '),
+        'saves=' + LEVEL.saves.map((x) => x.x.toFixed(1) + ',' + x.z.toFixed(1)).join(' ') + ' sw=' + LEVEL.switches.map((x) => (x.heavy ? 'H' : 'L') + '@' + x.x.toFixed(1) + ',' + x.z.toFixed(1)).join(' '),
+        'enemies=' + LEVEL.enemies.map((e) => e.kind + ':' + e.state + '@' + e.obj.position.x.toFixed(0) + ',' + e.obj.position.z.toFixed(0)).join(' '),
+      ].join(String.fromCharCode(10));
+    }, 500);
+  }
+
   frame();
 }
 
