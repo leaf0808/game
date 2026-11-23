@@ -62,7 +62,7 @@
       linear-gradient(180deg, rgba(232, 216, 178, .16), rgba(196, 182, 146, .10)),
       radial-gradient(ellipse 90% 70% at 50% 18%, rgba(255, 246, 214, .16), rgba(0, 0, 0, 0) 70%);
     mix-blend-mode: multiply;
-    opacity: .92;
+    opacity: .84;
   }
   #grain {
     opacity: .30;
@@ -73,8 +73,8 @@
   #vignette {
     /* 绘本的暗角很轻，只要一点点把视线收进画面中间 */
     background:
-      radial-gradient(ellipse 82% 76% at 50% 46%, rgba(0,0,0,0) 52%, rgba(58,48,28,.16) 82%, rgba(40,32,18,.34) 100%),
-      radial-gradient(ellipse 120% 90% at 50% 120%, rgba(30,24,14,.20), rgba(0,0,0,0) 62%);
+      radial-gradient(ellipse 82% 76% at 50% 46%, rgba(0,0,0,0) 54%, rgba(72,58,34,.10) 84%, rgba(52,42,24,.22) 100%),
+      radial-gradient(ellipse 120% 90% at 50% 120%, rgba(46,36,20,.12), rgba(0,0,0,0) 62%);
   }
 
   /* ---- 幕间淡入淡出 ---- */
@@ -137,6 +137,17 @@
     padding: 16px clamp(14px, 3vw, 30px);
     pointer-events: none;
   }
+  /* 底部一层极淡的暖色渐隐：画面提亮之后，浅色说明文字不会被奶油色路面吃掉。
+     只在最下面 110px 起作用，不影响整幅画的明度。 */
+  #hud::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 110px;
+    z-index: -1;
+    background: linear-gradient(180deg, rgba(34,27,18,0) 0%, rgba(34,27,18,.30) 70%, rgba(34,27,18,.42) 100%);
+    pointer-events: none;
+  }
   .keys {
     display: flex;
     flex-wrap: wrap;
@@ -144,6 +155,7 @@
     font-size: 11px;
     letter-spacing: .12em;
     color: var(--paper-dim);
+    text-shadow: 0 1px 6px rgba(20,16,10,.75);
   }
   .keys kbd {
     min-width: 20px;
@@ -287,12 +299,12 @@ const CONFIG = {
   outline: { thickness: 0.016, color: 0x4b4433 },
 
   /* 画面叠加的旧纸颗粒强度 */
-  grain: 0.30,
+  grain: 0.24,
 
   /* 旧纸滤镜：直接压在 canvas 上的 CSS 滤镜，一步把整幅画收进低饱和水彩。
      saturate 去鲜艳 / sepia 上米黄纸色 / contrast 去掉数码硬边 / brightness 提亮纸张。
      想更"插画"就继续降 saturate，想看清细节就调回 0.8。 */
-  paperFilter: 'saturate(0.72) sepia(0.10) contrast(0.94) brightness(1.03)',
+  paperFilter: 'saturate(0.86) sepia(0.06) contrast(0.92) brightness(1.11)',
 
   /* 漫游手感 */
   walk: { speed: 5.2, run: 8.4, accel: 26, turn: 2.6 },
@@ -314,28 +326,29 @@ const PAL = {
   inkSoft:    '#544c3b',
   paper:      '#e9dcbb',
   paperWarm:  '#d8c9a1',
-  haze:       '#cfc9b0',      // 远景洗色（米灰）
+  haze:       '#ddd3b6',      // 远景洗色（暖米）
 
-  leafDark:   '#55604a',
-  leaf:       '#6d7a58',
-  leafLight:  '#8d9670',
-  moss:       '#7c8763',
-  mossDeep:   '#5b6349',
+  leafDark:   '#63705a',
+  leaf:       '#7d8a66',
+  leafLight:  '#9fa981',
+  moss:       '#8c9774',
+  mossDeep:   '#6b7358',
 
-  dirt:       '#b9a885',
-  dirtDark:   '#9d8d6d',
-  dirtLight:  '#cfc0a0',
+  dirt:       '#c8b795',
+  dirtDark:   '#ad9d7d',
+  dirtLight:  '#dccdaf',
 
-  bark:       '#655942',
-  barkLight:  '#7f7157',
-  barkDark:   '#483f2f',
+  /* 树皮不再是深褐发黑：偏暖的浅褐 / 灰褐，靠纹样而不是暗度撑体积 */
+  bark:       '#7d6f55',
+  barkLight:  '#9a8a6e',
+  barkDark:   '#5f5341',
 
   stone:      '#b2a68a',
   stoneDark:  '#8b8069',
 
-  rock:       '#6e695c',
-  rockLight:  '#8b8574',
-  rockDark:   '#4d483d',
+  rock:       '#7f7a6c',
+  rockLight:  '#9b9583',
+  rockDark:   '#615b4e',
 
   caveFloor:  '#5f5b50',
   caveDark:   '#2b2a28',
@@ -595,14 +608,14 @@ const TEX_DRAW = {
       const x = rnd(0, w);
       const pts = [];
       for (let k = 0; k <= 10; k++) pts.push([x + Math.sin(k * 0.9 + i) * rnd(3, 13), k * h / 10]);
-      inkStroke(g, pts, pick([PAL.barkDark, '#332c1e', '#2b2417']), rnd(1.4, 3.6), rnd(0.20, 0.36));
+      inkStroke(g, pts, pick([PAL.barkDark, '#4a4232', '#3d3627']), rnd(1.4, 3.6), rnd(0.20, 0.36));
     }
     /* 亮面：一道压一道的浅赭，像水彩留在纸纹高处的颜色 */
     for (let i = 0; i < 16; i++) {
       const x = rnd(0, w);
       const pts = [];
       for (let k = 0; k <= 8; k++) pts.push([x + Math.sin(k * 1.1 + i) * rnd(2, 9), k * h / 8]);
-      inkStroke(g, pts, pick([PAL.barkLight, '#8b7c5e', '#9a8b6b']), rnd(1.4, 3.2), rnd(0.16, 0.26));
+      inkStroke(g, pts, pick([PAL.barkLight, '#a2937a', '#b0a184']), rnd(1.4, 3.2), rnd(0.16, 0.26));
     }
     for (let i = 0; i < 46; i++) {
       const x = rnd(0, w), y = rnd(0, h);
@@ -624,7 +637,7 @@ const TEX_DRAW = {
       const r = rnd(w * 0.05, w * 0.13), a = rnd(0, 7);
       g.save();
       g.translate(x, y); g.rotate(a);
-      g.fillStyle = pick(['#6a7a4f', '#87955f', '#4e5c3e', '#9aa870', '#3f4b34', PAL.leafLight]);
+      g.fillStyle = pick(['#7c8c5f', '#99a771', '#5e6c4e', '#adba84', '#4f5b44', PAL.leafLight]);
       g.globalAlpha = rnd(0.55, 0.95);
       g.beginPath();
       g.moveTo(0, 0);
@@ -635,8 +648,8 @@ const TEX_DRAW = {
       g.restore();
     }
     /* 几块更深的背光团，让叶簇有团块感 */
-    for (let i = 0; i < 30; i++) wash(g, rnd(0, w), rnd(0, h), rnd(w * 0.06, w * 0.18), '#333d2a', 0.34);
-    for (let i = 0; i < 20; i++) wash(g, rnd(0, w), rnd(0, h), rnd(w * 0.04, w * 0.1), '#a3ae7a', 0.20);
+    for (let i = 0; i < 30; i++) wash(g, rnd(0, w), rnd(0, h), rnd(w * 0.06, w * 0.18), '#48523a', 0.30);
+    for (let i = 0; i < 20; i++) wash(g, rnd(0, w), rnd(0, h), rnd(w * 0.04, w * 0.1), '#bcc78f', 0.24);
     paperGrain(g, w, h, 700, PAL.paperWarm, 0.08);
   },
 
@@ -732,10 +745,10 @@ const TEX_DRAW = {
   /* 蘑菇菌盖：砖红 + 奶油斑点 */
   cap(g, w, h) {
     /* 菌盖不用鲜红：赭土红 + 灰玫瑰，才像水彩罩染过的旧插画 */
-    baseWash(g, w, h, '#a87468', ['#8d5d55', '#bf9184', PAL.rose], 22, 0.34);
+    baseWash(g, w, h, '#b0705c', ['#96604f', '#c98f7c', PAL.rose], 22, 0.34);
     for (let i = 0; i < 26; i++) {
       const x = rnd(0, w), y = rnd(0, h), r = rnd(5, 16);
-      g.fillStyle = PAL.cream;
+      g.fillStyle = '#f4e9d0';
       g.globalAlpha = rnd(0.6, 0.95);
       g.beginPath(); g.ellipse(x, y, r, r * rnd(0.6, 0.95), rnd(0, 3), 0, 7); g.fill();
       g.globalAlpha = 0.5; g.strokeStyle = '#8d5d55'; g.lineWidth = 1.4; g.stroke();
@@ -928,7 +941,8 @@ function mouthTex() {
  * 接地阴影：插画里没有真实投影，但物件脚下垫一小片稀释的墨色，
  * 才能"落"在纸面上而不是飘着。贴图很便宜，统一用 contactShadow() 摆放。
  */
-SPR.shadow = radialTex([[0, 'rgba(56,50,36,0.46)'], [0.48, 'rgba(56,50,36,0.24)'], [1, 'rgba(56,50,36,0)']], 256, 1);
+/* 阴影用暖褐：水彩里的投影是'纸被洇湿后深了一点的暖色'，不是冷黑 */
+SPR.shadow = radialTex([[0, 'rgba(92,74,50,0.44)'], [0.48, 'rgba(92,74,50,0.22)'], [1, 'rgba(92,74,50,0)']], 256, 1);
 
 /** 丁达尔光束用贴图：上下淡出 + 左右羽化，避免出现方块硬边 */
 function beamTex() {
@@ -1783,14 +1797,23 @@ function washAt(t) {
  * 脚下的 contactShadow 椭圆软阴影负责。
  */
 function buildForest() {
-  const HAZE = 0xcfc9b0;                  // 米灰旧纸：雾色 = 远景底色 = 天空底色
-  const scene = newScene('#ece7d2', '#d9d3b7', HAZE, 0.027);
+  const HAZE = 0xddd3b6;                  // 暖米黄旧纸：雾色 = 远景底色 = 天空底色
+  /* 雾密度从 0.027 降到 0.021：近处林子看清楚，远处才慢慢褪成米黄 */
+  const scene = newScene('#efe8d0', '#e6ddc0', HAZE, 0.021);
 
-  scene.add(new THREE.AmbientLight(0xe9e1c9, 1.05));
-  scene.add(new THREE.HemisphereLight(0xf8f2dc, 0x76805c, 0.8));
+  /* 漫射为主：环境光托底 + 半球光给上亮下暗。
+     两盏都把色温往暖黄推、强度提高，暗部自然抬起来，又不会出现硬边。 */
+  scene.add(new THREE.AmbientLight(0xfff0d6, 1.32));
+  scene.add(new THREE.HemisphereLight(0xfff8e6, 0x8d9270, 0.95));
+
+  /* 极淡的暖色主光：只负责给树皮/衣褶一点从左上到右下的渐变，
+     阴影贴图为关（不设 castShadow），所以不会出现任何硬投影。 */
+  const key = new THREE.DirectionalLight(0xffe8bf, 0.32);
+  key.position.set(-14, 26, 12);
+  scene.add(key);
 
   /* 地面：往米灰洗一档，读起来像淡彩底色，而不是"刚喷过的草坪" */
-  scene.add(part(GEO.plane, mat('grass', 46, 46, { color: washTo(0xd2dab4, 0.34) }),
+  scene.add(part(GEO.plane, mat('grass', 46, 46, { color: washTo(0xe4e8c4, 0.26) }),
     [0, 0, -58], [380, 380, 1], [-Math.PI / 2, 0, 0]));
 
   /* 蜿蜒中心线：x 左右摆、z 一路向纵深；路面越远越窄，纵深才立得住 */
@@ -1803,10 +1826,19 @@ function buildForest() {
 
   /* 四层带子：外圈偏草绿 → 内圈才是土黄路面。边缘靠颜色"洗"进草地，
      不做硬路沿，路面才不会像贴上去的彩条。 */
-  scene.add(ribbon(cor, (t) => hw(t) * 2.9, 0.002, 9, 'dirt', 2.2, 0xc8cca6));
-  scene.add(ribbon(cor, (t) => hw(t) * 2.0, 0.006, 8, 'dirt', 1.7, 0xc0c69c));
-  scene.add(ribbon(cor, (t) => hw(t) * 1.45, 0.012, 7.5, 'dirt', 1.3, 0xd8cbaa));
+  scene.add(ribbon(cor, (t) => hw(t) * 2.9, 0.002, 9, 'dirt', 2.2, 0xd6d8b4));
+  scene.add(ribbon(cor, (t) => hw(t) * 2.0, 0.006, 8, 'dirt', 1.7, 0xd2d6b0));
+  scene.add(ribbon(cor, (t) => hw(t) * 1.45, 0.012, 7.5, 'dirt', 1.3, 0xe6dab8));
   scene.add(ribbon(cor, (t) => hw(t), 0.022, 7, 'dirt', 1));
+
+  /* 树冠缝隙漏下来的一束天光：落在小路中段，把往哪儿走照亮。
+     用聚光灯而不是画一个光柱——没有阴影、penumbra=1，边缘是化开的，
+     不会出现电影里那种硬邦邦的光斑。 */
+  const poolAt = cor.table[Math.round(0.26 * cor.samples)];
+  const sun = new THREE.SpotLight(0xffeec4, 0.46, 46, 0.62, 1.0, 0);
+  sun.position.set(poolAt.x - 3.0, 15.5, poolAt.z + 2.5);
+  sun.target.position.set(poolAt.x, 0, poolAt.z);
+  scene.add(sun, sun.target);
 
   const obstacles = [];
 
@@ -1965,7 +1997,7 @@ function buildForest() {
     const t = 0.03 + i / n * 0.97;
     const s = cor.table[Math.round(t * cor.samples)];
     return { x: s.x + rnd(-4.5, 4.5), y: rnd(1.7, 4.2), z: s.z };
-  }, 0xdedacf, 0.22, 11, 26);
+  }, 0xeadfc2, 0.17, 11, 26);
   scene.add(mist);
 
   /* 光柱：水彩绘本里的顶光是很淡的，只留几缕，别抢雾的活 */
@@ -1974,7 +2006,7 @@ function buildForest() {
     const s = cor.table[Math.round(t * cor.samples)];
     const side = i % 2 ? 1 : -1;
     return { x: s.x + s.sx * side * hw(t) * 2.2, z: s.z + s.sz * side * hw(t) * 2.2 };
-  }, 0xe8dcb2, 0.07);
+  }, 0xffeec6, 0.11);
   scene.add(shafts);
 
   const motes = makeMotes(22, () => {
@@ -2015,7 +2047,7 @@ function buildForest() {
 
       mist.children.forEach((m) => {
         m.position.x += m.userData.drift * dt;
-        m.material.opacity = 0.15 + Math.sin(t * 0.25 + m.userData.phase) * 0.06;
+        m.material.opacity = 0.12 + Math.sin(t * 0.25 + m.userData.phase) * 0.05;
         m.quaternion.copy(camera.quaternion);
       });
       shafts.children.forEach((sh) => {
@@ -2749,7 +2781,7 @@ function buildWalkAlice() {
   geo.computeBoundingSphere();
 
   const mesh = new THREE.SkinnedMesh(geo, new THREE.MeshLambertMaterial({
-    color: 0xf6eedb,                 // 纸色暖偏，让角色和旧纸底色调和
+    color: 0xfff4e0,                 // 纸色暖偏 + 提亮：蓝裙不发闷、白围裙带暖纸色
     map: glbTexture(J, bin),
     side: THREE.DoubleSide,          // 原模型就是 doubleSided（裙内侧要看得见）
   }));
@@ -2835,7 +2867,7 @@ function makeAlice() {
   if (!geo) return alicePlaceholder(g, rig);   // 没带 assets/alice.js 时的退路
 
   const mesh = new THREE.Mesh(geo, ALICE.mat || (ALICE.mat = new THREE.MeshLambertMaterial({
-    color: 0xf7efdd,          // 轻微纸色暖偏，贴合绘本调色；要原汁原味就改 0xffffff
+    color: 0xfff4e0,          // 轻微纸色暖偏，贴合绘本调色；要原汁原味就改 0xffffff
     map: aliceTexture(),
   })));
   mesh.rotation.y = ALICE_YAW;
