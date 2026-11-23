@@ -57,19 +57,24 @@
     z-index: 3;
   }
   #tint {
-    background: linear-gradient(180deg, rgba(226, 208, 166, .10), rgba(120, 106, 74, .06));
-    mix-blend-mode: soft-light;
+    /* 两层：整幅压一层米黄纸色（multiply），再从上方洒一点暖光（soft-light） */
+    background:
+      linear-gradient(180deg, rgba(232, 216, 178, .16), rgba(196, 182, 146, .10)),
+      radial-gradient(ellipse 90% 70% at 50% 18%, rgba(255, 246, 214, .16), rgba(0, 0, 0, 0) 70%);
+    mix-blend-mode: multiply;
+    opacity: .92;
   }
   #grain {
-    opacity: .22;
+    opacity: .30;
     mix-blend-mode: multiply;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size: 200px 200px;
   }
   #vignette {
+    /* 绘本的暗角很轻，只要一点点把视线收进画面中间 */
     background:
-      radial-gradient(ellipse 78% 72% at 50% 46%, rgba(0,0,0,0) 42%, rgba(46,38,22,.30) 78%, rgba(28,22,12,.62) 100%),
-      radial-gradient(ellipse 120% 90% at 50% 120%, rgba(20,16,10,.35), rgba(0,0,0,0) 60%);
+      radial-gradient(ellipse 82% 76% at 50% 46%, rgba(0,0,0,0) 52%, rgba(58,48,28,.16) 82%, rgba(40,32,18,.34) 100%),
+      radial-gradient(ellipse 120% 90% at 50% 120%, rgba(30,24,14,.20), rgba(0,0,0,0) 62%);
   }
 
   /* ---- 幕间淡入淡出 ---- */
@@ -257,6 +262,7 @@
   <script src="../vendor/three.min.js"></script>
   <!-- 爱丽丝模型数据：由 _tools/export_alice.py 从 als.blend 生成（减面 + 压贴图） -->
   <script src="./assets/alice.js"></script>
+  <script src="./assets/alice_walk.js"></script>
   <script src="../shared/progress.js"></script>
 
 <script>
@@ -276,60 +282,72 @@ const CONFIG = {
     cap: null, stem: null, petal: null, cloth: null, door: null,
   },
 
-  /* 手绘描边（背面外扩壳）。thickness 越大线越粗；0 关闭 */
-  outline: { thickness: 0.028, color: 0x2c2820 },
+  /* 手绘描边（背面外扩壳）。thickness 越大线越粗；0 关闭。
+     复古绘本的线稿是"淡墨"而不是硬黑边：颜色偏暖褐、粗细比原来小一半。 */
+  outline: { thickness: 0.016, color: 0x4b4433 },
 
   /* 画面叠加的旧纸颗粒强度 */
-  grain: 0.22,
+  grain: 0.30,
+
+  /* 旧纸滤镜：直接压在 canvas 上的 CSS 滤镜，一步把整幅画收进低饱和水彩。
+     saturate 去鲜艳 / sepia 上米黄纸色 / contrast 去掉数码硬边 / brightness 提亮纸张。
+     想更"插画"就继续降 saturate，想看清细节就调回 0.8。 */
+  paperFilter: 'saturate(0.72) sepia(0.10) contrast(0.94) brightness(1.03)',
 
   /* 漫游手感 */
   walk: { speed: 5.2, run: 8.4, accel: 26, turn: 2.6 },
 
-  /* 第三人称相机 */
-  cam: { distance: 7.4, height: 3.1, pitch: 0.30, lerp: 6.5 },
+  /* 第三人称相机：拉远一点、注视点前移，角色落到画面下方，路向远处收 */
+  cam: { distance: 8.8, height: 3.1, pitch: 0.33, lerp: 6.5 },
+  camLead: 4.6,
 
   fov: 58,
   pixelRatioMax: 1.75,
 };
 
-/* 调色板：取自参考插画的旧纸橄榄绿体系 */
+/* 调色板：旧纸水彩体系。
+   原则是"所有颜色都像是被米黄纸吸走了一层"——绿色偏灰橄榄、红色偏砖红/干玫瑰、
+   蓝色偏灰蓝，饱和度全部压低；亮色一律往 paper 靠，暗色一律往 ink 靠。
+   haze 是远景洗色用的米灰：越远的树、越远的蘑菇越接近它，绘本景深就出来了。 */
 const PAL = {
-  ink:        '#2c2820',
-  inkSoft:    '#463f31',
+  ink:        '#3b3729',
+  inkSoft:    '#544c3b',
   paper:      '#e9dcbb',
   paperWarm:  '#d8c9a1',
+  haze:       '#cfc9b0',      // 远景洗色（米灰）
 
-  leafDark:   '#4a5c3c',
-  leaf:       '#66794a',
-  leafLight:  '#8a9a62',
-  moss:       '#77875a',
-  mossDeep:   '#556442',
+  leafDark:   '#55604a',
+  leaf:       '#6d7a58',
+  leafLight:  '#8d9670',
+  moss:       '#7c8763',
+  mossDeep:   '#5b6349',
 
-  dirt:       '#b8a179',
-  dirtDark:   '#9c855e',
-  dirtLight:  '#cdb890',
+  dirt:       '#b9a885',
+  dirtDark:   '#9d8d6d',
+  dirtLight:  '#cfc0a0',
 
-  bark:       '#5e5138',
-  barkLight:  '#7b6a4b',
-  barkDark:   '#3f3726',
+  bark:       '#655942',
+  barkLight:  '#7f7157',
+  barkDark:   '#483f2f',
 
   stone:      '#b2a68a',
   stoneDark:  '#8b8069',
 
   rock:       '#6e695c',
   rockLight:  '#8b8574',
-  rockDark:   '#494639',
+  rockDark:   '#4d483d',
 
   caveFloor:  '#5f5b50',
   caveDark:   '#2b2a28',
 
-  rose:       '#c98b8b',
-  plum:       '#7a6484',
-  sky:        '#8fb0cf',
-  ochre:      '#dfb86f',
+  /* 花与菌盖：原来是大红大紫，现在改成干玫瑰、砖红、灰蓝、藕荷 */
+  rose:       '#bd9a94',
+  plum:       '#8a7f92',
+  sky:        '#9fb0bd',
+  ochre:      '#cfae72',
   cream:      '#efe4c6',
-  red:        '#b8412f',
-  redDark:    '#8d2f24',
+  red:        '#a8625a',
+  redDark:    '#7d4a45',
 };
 
 /* ============================================================================
@@ -569,23 +587,59 @@ const TEX_DRAW = {
     paperGrain(g, w, h, 700, PAL.paper, 0.09);
   },
 
-  /* 树皮：纵向波浪粗纹 + 短横裂，苔只留在底部 */
+  /* 树皮：纵向波浪粗纹 + 短横裂，苔只留在底部。
+     对比比其它贴图高一档：树干是画面里最大的一块面，纹样太淡就变成一根灰柱子。 */
   bark(g, w, h) {
     baseWash(g, w, h, PAL.bark, [PAL.barkDark, PAL.barkLight, '#4d422c', '#6d5c40'], 26, 0.30);
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 26; i++) {
       const x = rnd(0, w);
       const pts = [];
-      for (let k = 0; k <= 10; k++) pts.push([x + Math.sin(k * 0.9 + i) * rnd(3, 11), k * h / 10]);
-      inkStroke(g, pts, pick([PAL.barkDark, '#332c1e']), rnd(1.4, 3.4), rnd(0.20, 0.40));
+      for (let k = 0; k <= 10; k++) pts.push([x + Math.sin(k * 0.9 + i) * rnd(3, 13), k * h / 10]);
+      inkStroke(g, pts, pick([PAL.barkDark, '#332c1e', '#2b2417']), rnd(1.4, 3.6), rnd(0.20, 0.36));
     }
-    for (let i = 0; i < 40; i++) {
+    /* 亮面：一道压一道的浅赭，像水彩留在纸纹高处的颜色 */
+    for (let i = 0; i < 16; i++) {
+      const x = rnd(0, w);
+      const pts = [];
+      for (let k = 0; k <= 8; k++) pts.push([x + Math.sin(k * 1.1 + i) * rnd(2, 9), k * h / 8]);
+      inkStroke(g, pts, pick([PAL.barkLight, '#8b7c5e', '#9a8b6b']), rnd(1.4, 3.2), rnd(0.16, 0.26));
+    }
+    for (let i = 0; i < 46; i++) {
       const x = rnd(0, w), y = rnd(0, h);
-      inkStroke(g, [[x, y], [x + rnd(-16, 16), y + rnd(-3, 3)]], '#37301f', rnd(0.8, 1.8), 0.22);
+      inkStroke(g, [[x, y], [x + rnd(-16, 16), y + rnd(-3, 3)]], '#37301f', rnd(0.8, 1.8), 0.26);
     }
     /* 底部苔痕：只在贴图下缘，避免整棵树长满圆斑 */
     for (let i = 0; i < 16; i++) wash(g, rnd(0, w), h * rnd(0.82, 1.0), rnd(w * 0.06, w * 0.16), PAL.moss, 0.30);
     paperGrain(g, w, h, 700, PAL.paperWarm, 0.06);
   },
+
+  /* 树冠专用：一铺满的椭圆叶团。
+     为什么另开一张而不是直接用 vine：树冠球是画面里最大的"球形"，
+     靠灯光打出的明暗立刻露馅成 3D 卡通；这张贴图给的是"画上去的叶子"，
+     树冠改用不受光材质，整团就成了一块水彩叶簇。 */
+  canopy(g, w, h) {
+    baseWash(g, w, h, PAL.leafDark, [PAL.leaf, PAL.mossDeep, '#46503a', '#7d8a5d'], 22, 0.34);
+    for (let i = 0; i < 260; i++) {
+      const x = rnd(-10, w + 10), y = rnd(-10, h + 10);
+      const r = rnd(w * 0.05, w * 0.13), a = rnd(0, 7);
+      g.save();
+      g.translate(x, y); g.rotate(a);
+      g.fillStyle = pick(['#6a7a4f', '#87955f', '#4e5c3e', '#9aa870', '#3f4b34', PAL.leafLight]);
+      g.globalAlpha = rnd(0.55, 0.95);
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.quadraticCurveTo(r * 0.55, -r * 0.5, r, 0);
+      g.quadraticCurveTo(r * 0.55, r * 0.5, 0, 0);
+      g.fill();
+      g.strokeStyle = '#2f3526'; g.globalAlpha = 0.22; g.lineWidth = 1.2; g.stroke();
+      g.restore();
+    }
+    /* 几块更深的背光团，让叶簇有团块感 */
+    for (let i = 0; i < 30; i++) wash(g, rnd(0, w), rnd(0, h), rnd(w * 0.06, w * 0.18), '#333d2a', 0.34);
+    for (let i = 0; i < 20; i++) wash(g, rnd(0, w), rnd(0, h), rnd(w * 0.04, w * 0.1), '#a3ae7a', 0.20);
+    paperGrain(g, w, h, 700, PAL.paperWarm, 0.08);
+  },
+
 
   /* 树冠 / 叶簇：一簇簇椭圆叶片，亮橄榄 + 钢笔勾边 */
   vine(g, w, h) {
@@ -677,16 +731,17 @@ const TEX_DRAW = {
 
   /* 蘑菇菌盖：砖红 + 奶油斑点 */
   cap(g, w, h) {
-    baseWash(g, w, h, PAL.red, [PAL.redDark, '#c9503c', PAL.rose], 22, 0.34);
+    /* 菌盖不用鲜红：赭土红 + 灰玫瑰，才像水彩罩染过的旧插画 */
+    baseWash(g, w, h, '#a87468', ['#8d5d55', '#bf9184', PAL.rose], 22, 0.34);
     for (let i = 0; i < 26; i++) {
       const x = rnd(0, w), y = rnd(0, h), r = rnd(5, 16);
       g.fillStyle = PAL.cream;
       g.globalAlpha = rnd(0.6, 0.95);
       g.beginPath(); g.ellipse(x, y, r, r * rnd(0.6, 0.95), rnd(0, 3), 0, 7); g.fill();
-      g.globalAlpha = 0.5; g.strokeStyle = PAL.redDark; g.lineWidth = 1.4; g.stroke();
+      g.globalAlpha = 0.5; g.strokeStyle = '#8d5d55'; g.lineWidth = 1.4; g.stroke();
       g.globalAlpha = 1;
     }
-    inkStroke(g, [[0, h * 0.5], [w * 0.5, h * 0.46], [w, h * 0.52]], PAL.redDark, 2, 0.3);
+    inkStroke(g, [[0, h * 0.5], [w * 0.5, h * 0.46], [w, h * 0.52]], '#8d5d55', 2, 0.3);
     paperGrain(g, w, h, 500, PAL.paper, 0.08);
   },
 
@@ -907,15 +962,20 @@ function beamTex() {
 
 const MAT_CACHE = {};
 
-/** 哑光材质：Lambert 无高光，最接近水彩平涂 */
+/** 哑光材质：Lambert 无高光，最接近水彩平涂。
+    extra.unlit = true 时改用不受光的 Basic 材质 —— 颜色完全来自贴图，
+    球面也不会被灯光"照"出 3D 立体感（树冠就靠这一手摆脱塑料球外观）。 */
 function mat(texName, rx = 1, ry = 1, extra = {}) {
   const key = texName + '|' + rx + '|' + ry + '|' + JSON.stringify(extra);
   if (MAT_CACHE[key]) return MAT_CACHE[key];
   const src = TEX[texName];
-  const m = new THREE.MeshLambertMaterial(Object.assign({
+  const opt = Object.assign({
     map: src ? tiled(src, rx, ry) : null,
     color: src ? 0xffffff : (extra.color || 0xffffff),
-  }, extra));
+  }, extra);
+  const unlit = !!opt.unlit;
+  delete opt.unlit;
+  const m = unlit ? new THREE.MeshBasicMaterial(opt) : new THREE.MeshLambertMaterial(opt);
   MAT_CACHE[key] = m;
   return m;
 }
@@ -942,6 +1002,9 @@ const GEO = {
   cone: new THREE.ConeGeometry(1, 1, 16, 1),
   sphere: new THREE.SphereGeometry(1, 18, 14),
   lowSphere: new THREE.SphereGeometry(1, 12, 9),
+  /* 树冠专用：抖过一遍的低面球。完美椭球的轮廓线太"干净"，
+     远看就是一颗颗飘着的鸡蛋；揉皱之后同一颗球随机转向，轮廓就散成叶子团 */
+  puff: (() => { const g = new THREE.SphereGeometry(1, 14, 10); wobble(g, 0.16, 2.1); return g; })(),
   disc: new THREE.CircleGeometry(1, 24),
   plane: new THREE.PlaneGeometry(1, 1),
   capsule: new THREE.CapsuleGeometry(0.42, 0.9, 6, 14),
@@ -1205,58 +1268,95 @@ function wobble(geo, amp, freq) {
 }
 
 /** 老橡树：锥形树干 + 板根 + 分叉枝 + 一团团扁球树冠 */
+/** 把颜色往雾色（米灰）洗 k（0..1）：越远的物件越接近纸，绘本景深就是这么来的。
+        k 建议在调用处量化成 0/0.25/0.5/0.75/1 几档，材质缓存才不会爆炸。 */
+function washTo(hex, k) {
+  if (!k) return hex;
+  return new THREE.Color(hex).lerp(new THREE.Color(PAL.haze), Math.min(1, k)).getHex();
+}
+
 function makeOak(scale, opts) {
   const o = opts || {};
   const g = new THREE.Group();
+  const W = o.wash || 0;                       // 远景洗色强度
+  /* 洗色超过一档的树基本只剩个剪影，苔藓/树根/描边/垂藤这些细节全砍掉：
+     画面看不出差别，面数却少一半，省下来的预算给近处的装饰。 */
+  const fine = W < 0.6;
+  const barkCol = washTo(0xffffff, W);
+  const warmBark = washTo(0xe6d5b6, W);        // 树皮纹理偏灰，乘一层暖沙色把它扳回浅褐
   const h = rnd(6.5, 9.5);
   const rBot = rnd(0.85, 1.25);
   const rTop = rBot * rnd(0.5, 0.62);
 
   const trunkGeo = wobble(new THREE.CylinderGeometry(rTop, rBot, h, 12, 6), 0.10, 0.9);
-  const trunk = part(trunkGeo, mat('bark', 2, 3), [0, h / 2, 0]);
-  withOutline(trunk, 0.02);
+  const trunk = part(trunkGeo, mat('bark', 3, 4, { color: warmBark }), [0, h / 2, 0]);
+  if (fine) withOutline(trunk, 0.012);
   g.add(trunk);
 
+  /* 树干苔藓：贴着基部的一圈圈扁球，颜色比叶子灰一档，读起来像水彩渍而不是绿色贴纸 */
+  const mossCol = washTo(0xa9b48c, W);
+  const mossMat = new THREE.MeshLambertMaterial({ color: mossCol });
+  const mossN = (fine ? 4 : 1) + ((Math.random() * (fine ? 4 : 1)) | 0);
+  for (let i = 0; i < mossN; i++) {
+    const a = rnd(0, Math.PI * 2);
+    const rr = rBot * rnd(0.92, 1.06);
+    const patch = part(GEO.lowSphere, mossMat,
+      [Math.cos(a) * rr, rnd(0.25, h * 0.55), Math.sin(a) * rr],
+      [rnd(0.24, 0.5), rnd(0.5, 1.0), rnd(0.1, 0.22)]);
+    patch.rotation.set(rnd(-0.4, 0.4), -a, rnd(-0.3, 0.3));
+    g.add(patch);
+  }
+
   /* 扭曲的根：绕基部一圈斜插的粗锥 */
-  const roots = 4 + ((Math.random() * 3) | 0);
+  const roots = fine ? 4 + ((Math.random() * 3) | 0) : 0;
   for (let i = 0; i < roots; i++) {
     const a = (i / roots) * Math.PI * 2 + rnd(-0.3, 0.3);
     const len = rnd(1.5, 2.6);
     const rg = new THREE.CylinderGeometry(0.06, rnd(0.3, 0.5), len, 7, 3);
     wobble(rg, 0.08, 1.4);
-    const root = new THREE.Mesh(rg, mat('bark', 1, 1.4));
+    const root = new THREE.Mesh(rg, mat('bark', 1, 1.4, { color: barkCol }));
     root.position.set(Math.cos(a) * rBot * 0.9, len * 0.22, Math.sin(a) * rBot * 0.9);
     root.rotation.set(0, -a, Math.PI / 2 - rnd(0.95, 1.25));
     g.add(root);
   }
 
-  /* 主枝：向上外展的锥 */
+  /* 主枝：向上外展的锥。老橡树的枝要横着伸出去，树冠才铺得开 */
   const branches = 3 + ((Math.random() * 3) | 0);
   for (let i = 0; i < branches; i++) {
     const a = (i / branches) * Math.PI * 2 + rnd(-0.5, 0.5);
-    const len = rnd(2.4, 4.2);
+    const len = rnd(3.0, 5.4);
     const bg = new THREE.CylinderGeometry(0.12, rTop * 0.8, len, 8, 3);
     wobble(bg, 0.1, 1.1);
-    const b = new THREE.Mesh(bg, mat('bark', 1, 1.6));
+    const b = new THREE.Mesh(bg, mat('bark', 1, 1.6, { color: barkCol }));
     b.position.set(Math.cos(a) * rTop * 0.5, h * rnd(0.72, 0.92), Math.sin(a) * rTop * 0.5);
-    b.rotation.set(Math.PI / 2 - rnd(0.7, 1.15), -a, 0);
+    b.rotation.set(Math.PI / 2 - rnd(0.55, 0.95), -a, 0);
     g.add(b);
     /* 枝头挂一团冠 */
-    g.add(canopyPuff(Math.cos(a) * (rTop + len * 0.62), h * rnd(0.86, 1.06) + len * 0.3, Math.sin(a) * (rTop + len * 0.62), rnd(1.7, 2.7)));
+    /* 枝头挂一团冠。洗色的远景树不挂：枝尖离树干太远，淡掉之后就是
+       一坨飘在空中的浅色土豆，比不画还难看 */
+    if (fine) {
+      g.add(canopyPuff(Math.cos(a) * (rTop + len * 0.55), h * rnd(0.86, 1.06) + len * 0.26,
+        Math.sin(a) * (rTop + len * 0.55), rnd(2.0, 3.2), W));
+    }
   }
 
-  /* 树冠主体：叠 4-7 个压扁的球 */
+  /* 树冠主体：叠 5-8 个压扁的球，横向铺开、纵向压扁，边缘再补几团碎的 */
   const cy = h * rnd(0.98, 1.12);
-  for (let i = 0; i < 4 + ((Math.random() * 3) | 0); i++) {
-    g.add(canopyPuff(rnd(-2.4, 2.4), cy + rnd(-1.4, 1.6), rnd(-2.4, 2.4), rnd(2.0, 3.4)));
+  /* 近景冠团铺得开（横展才是老橡树）；远景只留中间一小团，
+     保证它始终"长在树干上"，不会散成一片浮萍 */
+  const spread = fine ? 2.7 : 1.25;
+  const puffN = fine ? 5 + ((Math.random() * 4) | 0) : 3;
+  for (let i = 0; i < puffN; i++) {
+    g.add(canopyPuff(rnd(-spread, spread), cy + rnd(-1.3, 1.4) * (fine ? 1 : 0.45),
+      rnd(-spread, spread), rnd(2.4, fine ? 3.6 : 2.9), W));
   }
-  g.add(canopyPuff(0, cy + 0.4, 0, rnd(3.0, 4.0)));
+  g.add(canopyPuff(0, cy + 0.4, 0, rnd(fine ? 3.6 : 2.9, fine ? 4.8 : 3.7), W));
 
   /* 垂藤 */
-  if (o.vines !== false) {
-    for (let i = 0; i < 3 + ((Math.random() * 3) | 0); i++) {
-      const a = rnd(0, Math.PI * 2), rr = rnd(1.4, 2.8);
-      g.add(vineStrand(Math.cos(a) * rr, cy + rnd(-0.4, 1.2), Math.sin(a) * rr, rnd(1.6, 4.2)));
+  if (fine && o.vines !== false) {
+    for (let i = 0; i < 4 + ((Math.random() * 3) | 0); i++) {
+      const a = rnd(0, Math.PI * 2), rr = rnd(1.8, 3.4);
+      g.add(vineStrand(Math.cos(a) * rr, cy + rnd(-0.4, 1.2), Math.sin(a) * rr, rnd(1.8, 4.6), W));
     }
   }
 
@@ -1265,31 +1365,38 @@ function makeOak(scale, opts) {
   return g;
 }
 
-/** 一团树冠：压扁球 + 描边 */
-function canopyPuff(x, y, z, r) {
-  const geo = GEO.lowSphere;
-  const m = new THREE.Mesh(geo, mat('vine', 2, 2));
+/** 一团树冠：压扁球 + 描边。
+    原来的球太"圆"，一眼就是 3D 卡通；这里压得更扁、更宽，线也画得更淡。 */
+/** 一团树冠：不受光的叶团球 + 淡描边。
+    用专门的 canopy 贴图而不是 vine：树冠是画面里最大的一颗"球"，
+    一旦被灯光照出明暗就露馅成 3D 卡通；改成 flat 的叶团色块后，
+    整团读起来是一块水彩叶簇。 */
+function canopyPuff(x, y, z, r, wash) {
+  const W = wash || 0;
+  const m = new THREE.Mesh(GEO.puff, mat('canopy', 2, 2, { color: washTo(0xffffff, W), unlit: true }));
   m.position.set(x, y, z);
-  m.scale.set(r, r * rnd(0.6, 0.78), r * rnd(0.9, 1.1));
-  m.rotation.y = rnd(0, 6);
-  withOutline(m, 0.035);
+  m.scale.set(r * rnd(1.05, 1.28), r * rnd(0.50, 0.66), r * rnd(1.0, 1.2));
+  m.rotation.set(rnd(-0.18, 0.18), rnd(0, 6), rnd(-0.14, 0.14));
+  /* 洗到只剩一层的远处树冠本来就糊成一团，描边看不见，就别再浪费一倍面数 */
+  if (W < 0.6) withOutline(m, 0.020);
   return m;
 }
 
 /** 藤蔓：微微弯曲的细茎 + 沿途几片扁叶（用叶片贴图，不是小球） */
-function vineStrand(x, y, z, len) {
+function vineStrand(x, y, z, len, wash) {
+  const W = wash || 0;
   const g = new THREE.Group();
   const seg = 5;
   const bend = rnd(-0.5, 0.5);
   for (let i = 0; i < seg; i++) {
     const s = len / seg;
     const f = i / seg;
-    const c = part(GEO.cyl, mat('bark', 1, 1, { color: 0x8f9a6a }),
+    const c = part(GEO.cyl, mat('bark', 1, 1, { color: washTo(0x8f9a6a, W) }),
       [bend * f * f * len * 0.5, -s * (i + 0.5), f * f * 0.2], [0.035 + f * 0.02, s * 1.04, 0.035 + f * 0.02],
       [0, 0, bend * 0.12]);
     g.add(c);
   }
-  const leafMat = new THREE.MeshLambertMaterial({ color: 0x8b9a63, side: THREE.DoubleSide });
+  const leafMat = new THREE.MeshLambertMaterial({ color: washTo(0x8b9a63, W), side: THREE.DoubleSide });
   for (let i = 0; i < 7; i++) {
     const f = rnd(0.15, 1);
     const leaf = new THREE.Mesh(GEO.leaf, leafMat);
@@ -1304,31 +1411,32 @@ function vineStrand(x, y, z, len) {
   return g;
 }
 
-/** 蘑菇：菌盖（半球）+ 菌柄 + 菌褶圆盘 */
+/** 蘑菇：菌盖（半球）+ 菌柄 + 菌褶圆盘。opts.wash = 远景洗色强度 */
 function makeMushroom(capR, opts) {
   const o = opts || {};
+  const W = o.wash || 0;
   const g = new THREE.Group();
   const stemH = (o.stemH || capR * rnd(1.1, 1.6));
   const stem = part(new THREE.CylinderGeometry(capR * 0.3, capR * 0.42, stemH, 10, 2),
-    mat('stem', 1, 1), [0, stemH / 2, 0]);
-  withOutline(stem, 0.05);
+    mat('stem', 1, 1, { color: washTo(0xffffff, W) }), [0, stemH / 2, 0]);
+  withOutline(stem, 0.03);
   g.add(stem);
 
   const capGeo = new THREE.SphereGeometry(capR, 16, 9, 0, Math.PI * 2, 0, Math.PI * 0.52);
   wobble(capGeo, capR * 0.045, 1.6);
-  const cap = new THREE.Mesh(capGeo, mat('cap', 1, 1));
+  const cap = new THREE.Mesh(capGeo, mat('cap', 1, 1, { color: washTo(0xffffff, W) }));
   cap.position.y = stemH - capR * 0.06;
   cap.scale.y = rnd(0.62, 0.95);
-  withOutline(cap, 0.045);
+  withOutline(cap, 0.028);
   g.add(cap);
 
-  const gills = part(GEO.disc, flatMat(0xd8c9a1), [0, stemH - capR * 0.08, 0], [capR * 0.97, capR * 0.97, 1], [Math.PI / 2, 0, 0]);
+  const gills = part(GEO.disc, flatMat(washTo(0xd8c9a1, W)), [0, stemH - capR * 0.08, 0], [capR * 0.97, capR * 0.97, 1], [Math.PI / 2, 0, 0]);
   g.add(gills);
 
   if (o.spots !== false) {
     for (let i = 0; i < 5; i++) {
       const a = rnd(0, 6.28), rr = capR * rnd(0.2, 0.72);
-      const dot = part(GEO.disc, flatMat(PAL.cream), [Math.cos(a) * rr, stemH + Math.cos(rr / capR) * capR * 0.42, Math.sin(a) * rr],
+      const dot = part(GEO.disc, flatMat(washTo(PAL.cream, W)), [Math.cos(a) * rr, stemH + Math.cos(rr / capR) * capR * 0.42, Math.sin(a) * rr],
         [capR * 0.16, capR * 0.16, 1], [-0.9 + rnd(-0.3, 0.3), a, 0]);
       g.add(dot);
     }
@@ -1338,53 +1446,70 @@ function makeMushroom(capR, opts) {
 }
 
 /** 石块：压扁抖动的球 */
-function makeRock(r, color) {
+function makeRock(r, color, wash) {
+  const W = wash || 0;
   const geo = new THREE.SphereGeometry(r, 10, 7);
   wobble(geo, r * 0.22, 1.2);
   /* 轻微提亮底色：不然在绿色天光下会被染成一块"草地"，认不出是石头 */
-  const m = new THREE.Mesh(geo, mat('rock', 1, 1, { color: 0xdad4c4 }));
+  const m = new THREE.Mesh(geo, mat('rock', 1, 1, { color: washTo(0xdad4c4, W) }));
   m.scale.set(rnd(1, 1.35), rnd(0.66, 0.98), rnd(0.9, 1.25));
   m.rotation.set(rnd(-0.2, 0.2), rnd(0, 6), rnd(-0.15, 0.15));
-  withOutline(m, 0.03);
+  withOutline(m, 0.02);
   return m;
 }
 
 /** 横卧的树根：躺平沿 X 轴并稍微翘起一头，像从土里拱出来的气根；
  *  用外层 Group 控制朝向，避免欧拉角把倾斜轴一起转走。 */
-function makeRoot(len, r) {
+function makeRoot(len, r, wash) {
+  const W = wash || 0;
   const g = new THREE.Group();
   const geo = new THREE.CylinderGeometry(r * 0.45, r * 1.15, len, 9, 4);
   wobble(geo, r * 0.3, 1.1);
-  const m = new THREE.Mesh(geo, mat('bark', 2, 1));
+  const m = new THREE.Mesh(geo, mat('bark', 2, 1, { color: washTo(0xffffff, W) }));
   const tilt = rnd(0.14, 0.26) * (Math.random() < 0.5 ? -1 : 1);
   m.rotation.z = Math.PI / 2 + tilt;
   /* 让低的那一头扎进土里，高的那头只离地一点点，就不会像根悬空的木棍 */
   m.position.y = Math.abs(Math.sin(tilt)) * len * 0.5 * 0.35 + r * 0.1;
-  withOutline(m, 0.022);
+  withOutline(m, 0.014);
   g.add(m);
   /* 根脚一撮苔：遮住"圆柱插进平面"的接缝 */
-  const moss = part(GEO.lowSphere, flatMat(0x77875a), [Math.cos(tilt > 0 ? Math.PI : 0) * len * 0.42, r * 0.1, 0],
+  const moss = part(GEO.lowSphere, flatMat(washTo(0x8a9670, W)), [Math.cos(tilt > 0 ? Math.PI : 0) * len * 0.42, r * 0.1, 0],
     [r * 2.6, r * 0.9, r * 2.2]);
   g.add(moss);
   return g;
 }
 
 /** 草丛 / 野花：透明广告牌精灵，最省钱也最有插画味 */
+/**
+ * 成片的花草。
+ * 这里用 InstancedMesh 而不是几千个 Sprite —— Sprite 每个都是一次 draw call，
+ * 3000 株就是 3000 次绘制；实例化之后整片花草只占 1 次，装饰密度翻几倍也不掉帧。
+ * 代价是不再永远正对镜头，但草叶本来就贴地，随机偏航的竖直小面片在近水平的
+ * 第三人称视角下和广告牌看不出差别。不写深度透明、只走 alphaTest，
+ * 于是花草能被树干正常挡住，不会出现"草飘在石头上"的排序错误。
+ */
 function makeBillboards(texName, count, areaFn, tint, sMin, sMax) {
-  const grp = new THREE.Group();
+  const mesh = new THREE.InstancedMesh(GEO.plane, new THREE.MeshBasicMaterial({
+    map: SPR[texName], alphaTest: 0.28, side: THREE.DoubleSide,
+    color: tint === undefined ? 0xffffff : tint,
+  }), count);
+  const dummy = new THREE.Object3D();
+  const col = new THREE.Color();
   for (let i = 0; i < count; i++) {
     const p = areaFn(i, count);
-    const m = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: SPR[texName], transparent: true, depthWrite: false,
-      color: tint || 0xffffff, alphaTest: 0.18,
-    }));
     const s = rnd(sMin === undefined ? 0.42 : sMin, sMax === undefined ? 0.86 : sMax);
-    m.scale.set(s, s, 1);
-    m.position.set(p.x, s * 0.42, p.z);
-    m.userData.base = m.position.y;
-    grp.add(m);
+    dummy.position.set(p.x, (p.y === undefined ? s * 0.44 : p.y), p.z);
+    dummy.rotation.set(0, rnd(0, Math.PI), rnd(-0.1, 0.1));
+    dummy.scale.set(s * rnd(0.82, 1.16), s, 1);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(i, dummy.matrix);
+    /* 逐株色偏：往土黄方向压一点蓝，一丛草才会有手绘的深浅，而不是一块绿板 */
+    mesh.setColorAt(i, col.setRGB(rnd(0.84, 1.0), rnd(0.84, 1.0), rnd(0.76, 0.98)));
   }
-  return grp;
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  return mesh;
 }
 
 /** 精灵图：手绘草叶与花（带透明通道，非平铺） */
@@ -1642,185 +1767,255 @@ function makeCaveMouth(w, h) {
       两侧粗大老橡树夹道，蜿蜒土路向纵深收束，白兔在前面引路。
    ========================================================================== */
 
+/** 走廊参数 t → 洗色档位。量化成 5 档是因为 mat() 会按参数缓存材质，
+    连续值一下午就能造出几百个材质实例；分档后同一片雾里的东西共用一个材质。 */
+function washAt(t) {
+  return [0, 0.2, 0.4, 0.6, 0.8][Math.max(0, Math.min(4, Math.round(t * 4)))];
+}
+
+/**
+ * 幕 1 · 林间小路（复古水彩绘本版）
+ * 构图只抓三件事：
+ *   1) 小路从画面底部中间蜿蜒收向纵深 —— 路半宽随 t 收窄 + 左右摆动；
+ *   2) 两侧放大老树把画面夹住 —— 三排树（门框 / 主列 / 剪影排）越远越淡；
+ *   3) 越远越浅、越偏米灰 —— 所有装饰都按 t 传 wash，再叠一层薄雾。
+ * 光照只有环境光 + 半球光，没有方向光就没有硬投影；"接地气"感由每个物体
+ * 脚下的 contactShadow 椭圆软阴影负责。
+ */
 function buildForest() {
-  /* 旧纸张橄榄绿：雾色 = 背景底色，远处才会化进纸里而不是一条地平线 */
-  const HAZE = 0xc3caa2;
-  const scene = newScene('#e8e9c6', '#c3caa2', HAZE, 0.019);
+  const HAZE = 0xcfc9b0;                  // 米灰旧纸：雾色 = 远景底色 = 天空底色
+  const scene = newScene('#ece7d2', '#d9d3b7', HAZE, 0.027);
 
-  const amb = new THREE.AmbientLight(0xe6dcc0, 0.85);
-  const hemi = new THREE.HemisphereLight(0xfaf2d6, 0x6a7a52, 1.0);
-  const sun = new THREE.DirectionalLight(0xfff2d2, 0.5);
-  sun.position.set(-24, 34, 18);
-  scene.add(amb, hemi, sun);
+  scene.add(new THREE.AmbientLight(0xe9e1c9, 1.05));
+  scene.add(new THREE.HemisphereLight(0xf8f2dc, 0x76805c, 0.8));
 
-  /* 地面：提亮一档，读起来像淡彩而不是深绿 */
-  scene.add(part(GEO.plane, mat('grass', 34, 34, { color: 0xdde4bd }), [0, 0, -50], [300, 300, 1], [-Math.PI / 2, 0, 0]));
+  /* 地面：往米灰洗一档，读起来像淡彩底色，而不是"刚喷过的草坪" */
+  scene.add(part(GEO.plane, mat('grass', 46, 46, { color: washTo(0xd2dab4, 0.34) }),
+    [0, 0, -58], [380, 380, 1], [-Math.PI / 2, 0, 0]));
 
-  /* 蜿蜒中心线：x 左右摆动，z 一路向纵深 */
+  /* 蜿蜒中心线：x 左右摆、z 一路向纵深；路面越远越窄，纵深才立得住 */
+  const hw = (t) => 2.05 + Math.sin(t * 6.2) * 0.3 - t * 0.34;
   const cor = corridor([
-    [0, 0, 10], [2.4, 0, -2], [-2.6, 0, -16], [3.0, 0, -30],
-    [-2.2, 0, -44], [3.2, 0, -58], [-1.4, 0, -72], [2.6, 0, -86],
-    [-2.0, 0, -100], [1.2, 0, -114], [0, 0, -126],
-  ], (t) => 3.5 + Math.sin(t * 6.2) * 0.45 - t * 0.5, 260);
+    [0, 0, 8], [2.2, 0, -4], [-2.4, 0, -17], [2.8, 0, -30],
+    [-2.0, 0, -43], [2.9, 0, -56], [-1.3, 0, -69], [2.4, 0, -82],
+    [-1.8, 0, -95], [1.1, 0, -110], [0, 0, -126],
+  ], hw, 260);
 
-  const hw = (t) => 3.5 + Math.sin(t * 6.2) * 0.45 - t * 0.5;
-
-  /* 三层带子：外圈偏草绿、中圈过渡、内圈才是路面。
-     用颜色乘算把边缘"洗"进草地，比再加一层贴图更好控制接缝。 */
-  scene.add(ribbon(cor, (t) => hw(t) * 3.4, 0.002, 9, 'dirt', 2.2, 0xd3d8b2));
-  scene.add(ribbon(cor, (t) => hw(t) * 2.3, 0.006, 8, 'dirt', 1.7, 0xc9d0a8));
-  scene.add(ribbon(cor, (t) => hw(t) * 1.6, 0.012, 7.5, 'dirt', 1.3, 0xdcd2b0));
+  /* 四层带子：外圈偏草绿 → 内圈才是土黄路面。边缘靠颜色"洗"进草地，
+     不做硬路沿，路面才不会像贴上去的彩条。 */
+  scene.add(ribbon(cor, (t) => hw(t) * 2.9, 0.002, 9, 'dirt', 2.2, 0xc8cca6));
+  scene.add(ribbon(cor, (t) => hw(t) * 2.0, 0.006, 8, 'dirt', 1.7, 0xc0c69c));
+  scene.add(ribbon(cor, (t) => hw(t) * 1.45, 0.012, 7.5, 'dirt', 1.3, 0xd8cbaa));
   scene.add(ribbon(cor, (t) => hw(t), 0.022, 7, 'dirt', 1));
 
   const obstacles = [];
 
-  /* 两侧老橡树：近处粗大、远处被雾吃掉，拉开纵深 */
-  for (const side of [-1, 1]) {
-    const spots = alongCorridor(cor, 15, side,
-      (t) => hw(t) + 1.8 + t * 1.0,
-      (t) => hw(t) + 11.0,
-      0.0, 1.0);
-    for (const p of spots) {
-      const tree = makeOak(rnd(0.85, 1.75), { vines: true });
-      tree.position.set(p.x, 0, p.z);
-      tree.rotation.y = rnd(0, 6.28);
-      scene.add(tree);
-      obstacles.push({ x: p.x, z: p.z, r: tree.userData.trunkRadius + 0.8 });
-      const tr = tree.userData.trunkRadius;
-      scene.add(contactShadow(p.x, p.z, tr * 1.5, tr * 1.35, 0.85));
+  /** 摆一棵老橡树。wash 越大细节越少（makeOak 内部会省掉描边、树根和垂藤） */
+  function tree(p, scale, wash) {
+    const t = makeOak(scale, { vines: wash < 0.6, wash });
+    t.position.set(p.x, 0, p.z);
+    t.rotation.y = rnd(0, 6.28);
+    scene.add(t);
+    obstacles.push({ x: p.x, z: p.z, r: t.userData.trunkRadius + 0.7 });
+    const tr = t.userData.trunkRadius;
+    scene.add(contactShadow(p.x, p.z, tr * 1.7, tr * 1.45, 0.34 * (1 - wash)));
+    return t;
+  }
 
-      /* 树脚苔藓与小蘑菇 */
-      for (let i = 0; i < 3; i++) {
-        const m = makeMushroom(rnd(0.16, 0.34));
-        const mx = p.x + rnd(-1.4, 1.4), mz = p.z + rnd(-1.4, 1.4);
-        m.position.set(mx, 0, mz);
-        scene.add(m);
-        scene.add(contactShadow(mx, mz, 0.34, 0.3, 0.7));
-      }
+  /** 树脚装饰：一圈小蘑菇 + 偶尔一块石头，专门吃掉"圆柱插在平面上"的接缝 */
+  function foot(p, wash) {
+    if (wash >= 0.6) return;                 // 远景看不见，别浪费面数
+    for (let i = 0; i < 5; i++) {
+      const mx = p.x + rnd(-1.7, 1.7), mz = p.z + rnd(-1.7, 1.7);
+      const m = makeMushroom(rnd(0.14, 0.38), { wash });
+      m.position.set(mx, 0, mz);
+      m.rotation.y = rnd(0, 6.28);
+      scene.add(m);
+      scene.add(contactShadow(mx, mz, 0.36, 0.3, 0.3 * (1 - wash)));
+    }
+    if (Math.random() < 0.75) {
+      const rx = p.x + rnd(-1.7, 1.7), rz = p.z + rnd(-1.7, 1.7);
+      const rk = makeRock(rnd(0.24, 0.56), undefined, wash);
+      rk.position.set(rx, 0.04, rz);
+      scene.add(rk);
+      scene.add(contactShadow(rx, rz, 0.52, 0.44, 0.3 * (1 - wash)));
     }
   }
 
-  /* 头顶横斜的枝与冠团：靠两侧留出天光，不要把画面顶部糊死 */
+  /* 1) 起手门框：路口左右各一棵最大的老树，只让树干内缘和横枝进画，
+        头顶被树冠压住 —— 参考图那种"从树荫底下往外看"的框景。
+        往外挪到 4 m 出头：再近树干就成两堵墙，把小路挤没了。 */
   for (const side of [-1, 1]) {
-    for (const p of alongCorridor(cor, 7, side, (t) => hw(t) * 0.55, (t) => hw(t) * 1.15, 0.05, 0.95)) {
-      scene.add(canopyPuff(p.x, rnd(12.5, 16.5), p.z, rnd(3.2, 5.4)));
+    const s = cor.table[6];
+    const off = hw(0.02) + 4.2;
+    tree({ x: s.x + s.sx * side * off, z: s.z + s.sz * side * off, t: 0.01 }, rnd(1.5, 1.8), 0);
+  }
+
+  /* 2) 主树列：两侧各 15 棵，近大远小，越远越往路中收，把小路夹成一条缝 */
+  for (const side of [-1, 1]) {
+    for (const p of alongCorridor(cor, 15, side,
+      (t) => hw(t) + 2.4 + t * 1.2, (t) => hw(t) + 8.2, 0.02, 1.0)) {
+      const W = washAt(p.t);
+      tree(p, rnd(1.5, 1.95) - p.t * 0.5, W);
+      foot(p, W);
     }
   }
 
-  /* 半埋在路缘的气根：横跨路面方向躺，只压住路边而不是横在路中间 */
-  for (const p of alongCorridor(cor, 8, 1, (t) => hw(t) * 0.98, (t) => hw(t) * 1.35, 0.08, 0.94)) {
-    const len = rnd(1.6, 2.8), rad = rnd(0.14, 0.26);
-    const r = makeRoot(len, rad);
-    r.position.set(p.x, -0.03, p.z);
-    r.rotation.y = Math.atan2(p.s.sz, p.s.sx);
-    scene.add(r);
-    scene.add(contactShadow(p.x, p.z, len * 0.52, rad * 1.9, 0.8, r.rotation.y, 0.03));
+  /* 3) 第二排剪影：填住主树列之间的空隙，让两侧读起来是"一片林子"而不是"两排树"。
+        整排强制洗色 —— 只剩淡掉的形体，正好当远景。 */
+  for (const side of [-1, 1]) {
+    for (const p of alongCorridor(cor, 13, side,
+      (t) => hw(t) + 8.5, (t) => hw(t) + 21, 0.03, 1.0)) {
+      tree(p, rnd(1.25, 1.95), Math.max(0.6, washAt(p.t)));
+    }
   }
-  for (const p of alongCorridor(cor, 7, -1, (t) => hw(t) * 1.0, (t) => hw(t) * 1.4, 0.1, 0.9)) {
-    const len = rnd(1.4, 2.6), rad = rnd(0.14, 0.24);
-    const r = makeRoot(len, rad);
-    r.position.set(p.x, -0.03, p.z);
-    r.rotation.y = Math.atan2(p.s.sz, p.s.sx);
-    scene.add(r);
-    scene.add(contactShadow(p.x, p.z, len * 0.52, rad * 1.9, 0.8, r.rotation.y, 0.03));
+
+  /* 4) 横伸到路上空的树冠团：只压最前面一小段，往后留出天光，
+        否则整条路都是暗的，纵深反而读不出来。 */
+  for (const side of [-1, 1]) {
+    for (const p of alongCorridor(cor, 7, side, (t) => hw(t) * 0.5, (t) => hw(t) * 1.3, 0.0, 0.42)) {
+      scene.add(canopyPuff(p.x, rnd(10.5, 14.5), p.z, rnd(2.6, 4.2), washAt(p.t * 1.6)));
+    }
+  }
+
+  /* 气根：顺着路的方向躺，只压住路缘，不横在路中间挡路 */
+  for (const side of [1, -1]) {
+    for (const p of alongCorridor(cor, side > 0 ? 12 : 11, side,
+      (t) => hw(t) * 0.96, (t) => hw(t) * 1.5, 0.06, 0.9)) {
+      const W = washAt(p.t);
+      const len = rnd(1.5, 2.7), rad = rnd(0.13, 0.24);
+      const r = makeRoot(len, rad, W);
+      r.position.set(p.x, -0.03, p.z);
+      r.rotation.y = Math.atan2(p.s.sz, p.s.sx);
+      scene.add(r);
+      scene.add(contactShadow(p.x, p.z, len * 0.52, rad * 2.0, 0.34 * (1 - W), r.rotation.y, 0.03));
+    }
   }
 
   /* 路边乱石 */
-  for (const p of alongCorridor(cor, 10, -1, (t) => hw(t) + 0.4, (t) => hw(t) + 3.2, 0.05, 0.95)) {
-    const rock = makeRock(rnd(0.35, 0.9));
-    rock.position.set(p.x, 0.1, p.z);
-    scene.add(rock);
-    scene.add(contactShadow(p.x, p.z, 0.72, 0.6, 0.75));
-    obstacles.push({ x: p.x, z: p.z, r: 0.5 });
+  for (const side of [-1, 1]) {
+    for (const p of alongCorridor(cor, side > 0 ? 16 : 14, side,
+      (t) => hw(t) + 0.3, (t) => hw(t) + 3.2, 0.04, 0.94)) {
+      const W = washAt(p.t);
+      const rock = makeRock(rnd(0.3, 0.85), undefined, W);
+      rock.position.set(p.x, 0.08, p.z);
+      scene.add(rock);
+      scene.add(contactShadow(p.x, p.z, 0.7, 0.58, 0.32 * (1 - W)));
+      if (rock.scale.x > 0.55) obstacles.push({ x: p.x, z: p.z, r: 0.45 });
+    }
   }
 
-  /* 参考插画里的"主角蘑菇"：路缘每隔一段来一丛大菌盖 */
-  for (const p of alongCorridor(cor, 11, 1, (t) => hw(t) * 1.15, (t) => hw(t) * 1.75, 0.05, 0.9)) {
+  /* 碎石：绘本里的"笔触"，散在路面上半埋着，密一点画面才不空 */
+  for (let i = 0; i < 34; i++) {
+    const t = rnd(0.02, 0.7);
+    const s = cor.table[Math.round(t * cor.samples)];
+    const off = (Math.random() - 0.5) * 2 * hw(t) * 0.92;
+    const peb = makeRock(rnd(0.1, 0.22), undefined, washAt(t));
+    peb.position.set(s.x + s.sx * off, 0, s.z + s.sz * off);
+    peb.rotation.y = rnd(0, 6.28);
+    scene.add(peb);
+    scene.add(contactShadow(peb.position.x, peb.position.z, 0.2, 0.16, 0.32 * (1 - washAt(t))));
+  }
+
+  /* 主角蘑菇丛：路缘每隔一段来一丛大菌盖（菌盖颜色已经是低饱和赭红） */
+  for (const p of alongCorridor(cor, 16, 1, (t) => hw(t) * 1.15, (t) => hw(t) * 1.85, 0.04, 0.9)) {
+    const W = washAt(p.t);
     const cluster = new THREE.Group();
     const n = 2 + ((Math.random() * 3) | 0);
     for (let i = 0; i < n; i++) {
-      const m = makeMushroom(rnd(0.34, 0.8));
+      const m = makeMushroom(rnd(0.28, 0.62), { wash: W });
       m.position.set(rnd(-0.5, 0.5), 0, rnd(-0.5, 0.5));
       m.rotation.y = rnd(0, 6.28);
       cluster.add(m);
     }
     cluster.position.set(p.x, 0, p.z);
-    cluster.add(contactShadow(0, 0, 0.95, 0.85, 0.8));
+    cluster.add(contactShadow(0, 0, 0.8, 0.72, 0.3 * (1 - W)));
     scene.add(cluster);
-    obstacles.push({ x: p.x, z: p.z, r: 0.7 });
+    obstacles.push({ x: p.x, z: p.z, r: 0.65 });
   }
-  for (const p of alongCorridor(cor, 9, -1, (t) => hw(t) * 1.2, (t) => hw(t) * 1.8, 0.08, 0.92)) {
-    const m = makeMushroom(rnd(0.3, 0.7));
+  for (const p of alongCorridor(cor, 14, -1, (t) => hw(t) * 1.2, (t) => hw(t) * 1.9, 0.06, 0.92)) {
+    const W = washAt(p.t);
+    const m = makeMushroom(rnd(0.26, 0.56), { wash: W });
     m.position.set(p.x, 0, p.z);
     m.rotation.y = rnd(0, 6.28);
     scene.add(m);
-    scene.add(contactShadow(p.x, p.z, 0.8, 0.7, 0.8));
-    obstacles.push({ x: p.x, z: p.z, r: 0.6 });
+    scene.add(contactShadow(p.x, p.z, 0.66, 0.58, 0.3 * (1 - W)));
+    obstacles.push({ x: p.x, z: p.z, r: 0.55 });
   }
 
-  /* 花草：最密最高的一圈正好压在最外圈带子的边上，专门打断带状路面的硬边 */
+  /* 花草：最密的一圈正好压在最外圈带子的边上，专门打断带状路面的硬边。
+     分布只铺到 t≈0.75 —— 再远就被雾吃干净，摆了也看不见。 */
   const edgeArea = (mul, from, to) => () => {
-    const t = rnd(0.01, 0.99);
+    const t = rnd(0.01, 0.75);
     const s = cor.table[Math.round(t * cor.samples)];
     const side = Math.random() < 0.5 ? -1 : 1;
     const off = hw(t) * mul + rnd(from, to);
     return { x: s.x + s.sx * side * off, z: s.z + s.sz * side * off };
   };
-  scene.add(makeBillboards('grassBill', 1600, edgeArea(3.4, -1.5, 1.5), 0xe2e8c4, 0.75, 1.45));
-  scene.add(makeBillboards('grassBill', 900, edgeArea(2.3, -1.0, 1.0), 0xe6ecc8, 0.55, 1.05));
-  scene.add(makeBillboards('grassBill', 700, edgeArea(3.8, 0, 10), 0xdde5bd, 0.5, 1.1));
-  scene.add(makeBillboards('flowerBill', 380, edgeArea(2.5, -0.4, 3.6), 0xf4efdc, 0.42, 0.8));
-  scene.add(makeBillboards('flowerBill', 260, edgeArea(3.6, 0, 11), 0xeae4cd, 0.42, 0.85));
+  scene.add(makeBillboards('grassBill', 2600, edgeArea(2.9, -1.6, 1.6), 0xdfe6c4, 0.75, 1.5));
+  scene.add(makeBillboards('grassBill', 1500, edgeArea(1.9, -1.1, 1.1), 0xe4ecc6, 0.5, 1.0));
+  scene.add(makeBillboards('grassBill', 1400, edgeArea(3.6, 0, 13), 0xd9e2bc, 0.45, 1.05));
+  scene.add(makeBillboards('flowerBill', 620, edgeArea(2.2, -0.5, 3.4), 0xf2ecd8, 0.4, 0.78));
+  scene.add(makeBillboards('flowerBill', 460, edgeArea(3.4, 0, 12), 0xe9e3cd, 0.4, 0.82));
 
-  /* 薄雾 + 光柱 + 萤火虫 */
-  const mist = makeMist(26, (i, n) => {
-    const t = i / n;
+  /* 薄雾：浓度调高、颜色直接取雾色，让远处树和蘑菇是"淡出去"而不是"变黑" */
+  /* 雾片抬到 1.6 m 以上：贴地的雾片会被当成地上的一摊水，
+     人眼的期待是雾挂树干中段、把远处化掉 */
+  const mist = makeMist(38, (i, n) => {
+    const t = 0.03 + i / n * 0.97;
     const s = cor.table[Math.round(t * cor.samples)];
-    return { x: s.x, y: rnd(1.0, 3.2), z: s.z };
-  }, 0xe6e9c8, 0.19, 9, 22);
+    return { x: s.x + rnd(-4.5, 4.5), y: rnd(1.7, 4.2), z: s.z };
+  }, 0xdedacf, 0.22, 11, 26);
   scene.add(mist);
 
-  /* 光柱放在两侧树缝里，不要堆在视线尽头 */
-  const shafts = makeShafts(8, (i, n) => {
-    const t = 0.05 + i / n * 0.85;
+  /* 光柱：水彩绘本里的顶光是很淡的，只留几缕，别抢雾的活 */
+  const shafts = makeShafts(5, (i, n) => {
+    const t = 0.06 + i / n * 0.5;
     const s = cor.table[Math.round(t * cor.samples)];
     const side = i % 2 ? 1 : -1;
-    return { x: s.x + s.sx * side * hw(t) * 2.6, z: s.z + s.sz * side * hw(t) * 2.6 };
-  }, 0xf6e6b8, 0.11);
+    return { x: s.x + s.sx * side * hw(t) * 2.2, z: s.z + s.sz * side * hw(t) * 2.2 };
+  }, 0xe8dcb2, 0.07);
   scene.add(shafts);
 
-  const motes = makeMotes(34, () => {
-    const t = rnd(0.02, 0.98);
+  const motes = makeMotes(22, () => {
+    const t = rnd(0.02, 0.6);
     const s = cor.table[Math.round(t * cor.samples)];
     const side = Math.random() < 0.5 ? -1 : 1;
-    const off = hw(t) * rnd(0.6, 2.2);
-    return { x: s.x + s.sx * side * off, y: rnd(0.5, 3.4), z: s.z + s.sz * side * off };
-  }, 0xffe6a8, 0.17, true);
+    const off = hw(t) * rnd(0.5, 2.0);
+    return { x: s.x + s.sx * side * off, y: rnd(0.5, 3.2), z: s.z + s.sz * side * off };
+  }, 0xf0dfae, 0.14, true);
   scene.add(motes);
 
-  /* 白兔引导摆件 */
+  /* 白兔：摆在小路左侧、爱丽丝前方一点点，四脚腾空幅度更大 = 在跑而不是在蹦 */
   const rabbit = makeRabbit();
+  rabbit.scale.setScalar(1.18);
   scene.add(rabbit);
-  let rabbitT = 0.09;
+  const rshadow = contactShadow(0, 0, 0.5, 0.42, 0.4);
+  scene.add(rshadow);
+  let rabbitT = 0.085;
 
-  /* 走到路的尽头（幕 2 的洞口方向）触发转场 */
+  /* 出生在路的"中后段"：镜头在后面跟着，前面留出长长的蜿蜒路 */
   const state = {
     scene, cor, obstacles,
-    spawn: { x: cor.table[3].x, z: cor.table[3].z, yaw: 0 },
+    spawn: { x: cor.table[16].x, z: cor.table[16].z, yaw: 0 },
     progress: () => world.player ? nearest(cor, world.player.position.x, world.player.position.z).index / cor.samples : 0,
     reachedEnd: () => state.progress() > 0.965,
     update(dt, t) {
-      /* 兔子保持在玩家前方 6-10%，走到尽头就停下等 */
-      const target = Math.min(0.93, Math.max(rabbitT + 0.055, state.progress() + 0.075));
+      /* 兔子保持在玩家前方 5-9%，走到尽头就停下等 */
+      const target = Math.min(0.93, Math.max(rabbitT + 0.05, state.progress() + 0.05));
       rabbitT += (target - rabbitT) * Math.min(1, dt * 1.6);
       const s = cor.table[Math.round(rabbitT * cor.samples)];
-      const hop = Math.abs(Math.sin(t * 3.4)) * 0.34;
-      rabbit.position.set(s.x + s.sx * 0.7, hop, s.z + s.sz * 0.7);
-      rabbit.rotation.set(-hop * 0.5, Math.atan2(s.tx, s.tz), 0);
+      const gait = t * 7.2;
+      const hop = Math.abs(Math.sin(gait)) * 0.30;
+      const push = Math.max(0, Math.cos(gait)) * 0.10;      // 蹬地瞬间身体往前压
+      rabbit.position.set(s.x - s.sx * 1.05, hop, s.z - s.sz * 1.05);
+      rabbit.rotation.set(-0.16 - hop * 0.45, Math.atan2(s.tx, s.tz), 0);
+      rshadow.position.set(rabbit.position.x, 0.02, rabbit.position.z);
+      rshadow.material.opacity = 0.4 * (1 - Math.min(1, hop / 0.5) * 0.5);
 
       mist.children.forEach((m) => {
         m.position.x += m.userData.drift * dt;
-        m.material.opacity = 0.13 + Math.sin(t * 0.25 + m.userData.phase) * 0.06;
+        m.material.opacity = 0.15 + Math.sin(t * 0.25 + m.userData.phase) * 0.06;
         m.quaternion.copy(camera.quaternion);
       });
       shafts.children.forEach((sh) => {
@@ -1830,7 +2025,7 @@ function buildForest() {
         const u = mo.userData;
         mo.position.x = u.home.x + Math.sin(t * u.rate + u.phase) * u.amp;
         mo.position.y = u.home.y + Math.sin(t * u.rate * 0.7 + u.phase * 1.7) * u.amp * 0.4;
-        mo.material.opacity = 0.35 + Math.abs(Math.sin(t * u.rate * 1.6 + u.phase)) * 0.55;
+        mo.material.opacity = 0.25 + Math.abs(Math.sin(t * u.rate * 1.6 + u.phase)) * 0.45;
       });
     },
   };
@@ -1974,6 +2169,7 @@ function buildHole() {
   scene.add(motes);
 
   const rabbit = makeRabbit();
+  rabbit.scale.setScalar(1.18);
   scene.add(rabbit);
   let rabbitT = 0.2;
 
@@ -2351,7 +2547,10 @@ const CHAPTERS = [
        而 <script> 引入的 js 常量 + data URI 贴图不受限制，也不需要额外挂 GLTFLoader。
        换模型 / 调精度：改 export_alice.py 里的 SRC / TARGET_H / TARGET_TRIS / TEX_PX 重跑。
        ----------------------------------------------------------------------------
-       模型是静态网格（没有骨骼），走路靠整块的起伏 + 前倾 + 侧摆来演，见 animateAlice()。
+       这里有两条路：
+         · 首选 assets/alice_walk.js（带骨骼的 1 秒走路 GLB，由 alice_rig.py 生成），
+           解析器见下方 buildWalkAlice()，mixer 的播放速度跟着实际移速走；
+         · 没有 GLB 时退回静态网格，走路靠整块起伏 + 前倾 + 侧摆来演（animateAlice）。
        正面朝向：游戏里角色前进方向是本地 +Z，如果模型面朝反了，只调 ALICE_YAW 一个数。
    ========================================================================== */
 
@@ -2425,12 +2624,212 @@ function meshOutline(mesh, mm) {
   return mesh;
 }
 
+/* ----------------------------------------------------------------------------
+   走路 GLB：一个只认"蒙皮网格 + 一条动画"的最小 glTF 2.0 解析器
+   ---------------------------------------------------------------------------
+   为什么不用 GLTFLoader：本项目要能 file:// 双击打开，GLTFLoader 不在 r160 的
+   UMD 包里，而 .glb 走 fetch 会被浏览器拦。所以模型以 base64 常量随 <script>
+   进来（assets/alice_walk.js），这里只实现我们这份 GLB 用到的部分：
+   chunk 解析 → accessor 读取 → Bone / SkinnedMesh / AnimationClip。
+   换成别的 glTF 2.0 蒙皮模型通常也能直接吃，前提是只有网格 + 骨骼 + 动画。
+   -------------------------------------------------------------------------- */
+const WALK = { done: false, root: null, mixer: null, action: null, clip: null, mesh: null };
+
+/** GLB 分块：12 字节头 + JSON 块 + BIN 块，每个块长都按 4 字节对齐 */
+function glbChunks(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  if (dv.getUint32(0, true) !== 0x46546C67) return null;   // 魔数 'glTF'
+  let off = 12, json = null, bin = null;
+  while (off + 8 <= u8.byteLength) {
+    const len = dv.getUint32(off, true), type = dv.getUint32(off + 4, true);
+    const body = u8.subarray(off + 8, off + 8 + len);
+    if (type === 0x4E4F534A) json = JSON.parse(new TextDecoder().decode(body));  // 'JSON'
+    else if (type === 0x004E4942) bin = body;                                    // 'BIN\0'
+    off += 8 + len + ((4 - (len % 4)) % 4);
+  }
+  return json && bin ? { json, bin } : null;
+}
+
+const GLB_CT = {
+  5120: ['Int8Array', 'getInt8', 1], 5121: ['Uint8Array', 'getUint8', 1],
+  5122: ['Int16Array', 'getInt16', 2], 5123: ['Uint16Array', 'getUint16', 2],
+  5125: ['Uint32Array', 'getUint32', 4], 5126: ['Float32Array', 'getFloat32', 4],
+};
+const GLB_N = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
+
+/**
+ * 读一个 accessor。故意用 DataView 逐元素读：
+ * bufferView 的 byteOffset 不保证和组件大小对齐（uint8 的 JOINTS_0 会夹在
+ * float 数据中间），直接 new Float32Array(buf, off) 会抛"未对齐"。
+ */
+function glbRead(J, bin, index) {
+  const a = J.accessors[index];
+  const ct = GLB_CT[a.componentType];
+  const n = GLB_N[a.type];
+  const out = new (window[ct[0]])(a.count * n);
+  if (a.bufferView === undefined) return out;
+  const bv = J.bufferViews[a.bufferView];
+  const stride = bv.byteStride || n * ct[2];
+  const base = (bv.byteOffset || 0) + (a.byteOffset || 0);
+  const dv = new DataView(bin.buffer, bin.byteOffset + base, bv.byteLength - (a.byteOffset || 0));
+  for (let k = 0; k < a.count; k++) {
+    for (let c = 0; c < n; c++) out[k * n + c] = dv[ct[1]](k * stride + c * ct[2], true);
+  }
+  return out;
+}
+
+/** 节点名清洗：Three 的 track name 用 "." 分段，骨名里的 "thigh.L" 会被切碎 */
+const glbName = (n, i) => (n || ('node' + i)).replace(/[^A-Za-z0-9_]/g, '_');
+
+/** GLB 内嵌贴图：bufferView → Blob → Image。glTF 的 UV 原点在左上，flipY 必须关 */
+function glbTexture(J, bin) {
+  const img = J.images && J.images[0];
+  if (!img || img.bufferView === undefined) return null;
+  const bv = J.bufferViews[img.bufferView];
+  const off = bv.byteOffset || 0;
+  const url = URL.createObjectURL(new Blob([bin.subarray(off, off + bv.byteLength)], { type: img.mimeType || 'image/jpeg' }));
+  const t = new THREE.Texture();
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.flipY = false;
+  t.anisotropy = 4;
+  const im = new Image();
+  im.onload = () => { t.image = im; t.needsUpdate = true; URL.revokeObjectURL(url); };
+  im.onerror = () => URL.revokeObjectURL(url);
+  im.src = url;
+  return t;
+}
+
+function buildWalkAlice() {
+  if (WALK.done) return WALK.root ? WALK : null;
+  WALK.done = true;
+  if (!window.ALICE_WALK_GLB) return null;
+  const g = glbChunks(aliceBytes(window.ALICE_WALK_GLB));
+  if (!g) return null;
+  const J = g.json, bin = g.bin;
+  const skin = J.skins && J.skins[0];
+  const prim = J.meshes && J.meshes[0] && J.meshes[0].primitives[0];
+  if (!skin || !prim) return null;
+
+  /* 骨骼：只给 skin.joints 里的节点建 Bone，TRS 直接拿节点上的静止值 */
+  const jointSet = new Set(skin.joints);
+  const boneByNode = {};
+  J.nodes.forEach((nd, i) => {
+    if (!jointSet.has(i)) return;
+    const b = new THREE.Bone();
+    b.name = glbName(nd.name, i);
+    if (nd.translation) b.position.fromArray(nd.translation);
+    if (nd.rotation) b.quaternion.fromArray(nd.rotation);
+    if (nd.scale) b.scale.fromArray(nd.scale);
+    boneByNode[i] = b;
+  });
+  J.nodes.forEach((nd, i) => {
+    if (!boneByNode[i]) return;
+    (nd.children || []).forEach((c) => { if (boneByNode[c]) boneByNode[i].add(boneByNode[c]); });
+  });
+
+  /* 骨架根：没有"父级也在 joints 里"的那一根 */
+  let rootBone = null;
+  for (const i of skin.joints) {
+    const parents = skin.joints.filter((j) => (J.nodes[j].children || []).includes(i));
+    if (!parents.length) { rootBone = boneByNode[i]; break; }
+  }
+  if (!rootBone) rootBone = boneByNode[skin.joints[0]];
+
+  /* 网格 */
+  const geo = new THREE.BufferGeometry();
+  const A = prim.attributes;
+  geo.setAttribute('position', new THREE.BufferAttribute(glbRead(J, bin, A.POSITION), 3));
+  if (A.NORMAL !== undefined) geo.setAttribute('normal', new THREE.BufferAttribute(glbRead(J, bin, A.NORMAL), 3));
+  if (A.TEXCOORD_0 !== undefined) geo.setAttribute('uv', new THREE.BufferAttribute(glbRead(J, bin, A.TEXCOORD_0), 2));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(glbRead(J, bin, A.JOINTS_0)), 4));
+  /* 注意属性名是单数 skinWeight —— Three 的蒙皮着色器只认这个名字，
+     写成 skinWeights 不会报错，但权重全部读成默认值，整个人会塌成一个球 */
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(glbRead(J, bin, A.WEIGHTS_0), 4));
+  if (prim.indices !== undefined) geo.setIndex(new THREE.BufferAttribute(glbRead(J, bin, prim.indices), 1));
+  geo.computeBoundingSphere();
+
+  const mesh = new THREE.SkinnedMesh(geo, new THREE.MeshLambertMaterial({
+    color: 0xf6eedb,                 // 纸色暖偏，让角色和旧纸底色调和
+    map: glbTexture(J, bin),
+    side: THREE.DoubleSide,          // 原模型就是 doubleSided（裙内侧要看得见）
+  }));
+  const ibm = glbRead(J, bin, skin.inverseBindMatrices);
+  const invBind = [];
+  for (let i = 0; i < ibm.length; i += 16) invBind.push(new THREE.Matrix4().fromArray(ibm, i));
+  mesh.bind(new THREE.Skeleton(skin.joints.map((i) => boneByNode[i]), invBind), new THREE.Matrix4());
+
+  /* 描边：外扩壳必须也是 SkinnedMesh，否则它会停成静止姿态的一圈黑影 */
+  if (ALICE_OUTLINE > 0) {
+    const hm = new THREE.MeshBasicMaterial({ color: CONFIG.outline.color, side: THREE.BackSide });
+    hm.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\n  transformed += normalize(normal) * ' + ALICE_OUTLINE.toFixed(5) + ';');
+    };
+    hm.customProgramCacheKey = () => 'alice-walk-hull';
+    const hull = new THREE.SkinnedMesh(geo, hm);
+    hull.bind(mesh.skeleton, new THREE.Matrix4());
+    hull.renderOrder = -1;
+    mesh.add(hull);
+  }
+
+  /* 动画：每个通道一条 KeyframeTrack，用"清洗后的骨名"绑定 */
+  let clip = null;
+  if (J.animations && J.animations[0]) {
+    const anim = J.animations[0];
+    const tracks = [];
+    const t0 = glbRead(J, bin, anim.samplers[anim.channels[0].sampler].input)[0];
+    for (const ch of anim.channels) {
+      const bone = boneByNode[ch.target.node];
+      const path = ch.target.path;
+      if (!bone || (path !== 'rotation' && path !== 'translation' && path !== 'scale')) continue;
+      const smp = anim.samplers[ch.sampler];
+      const times = glbRead(J, bin, smp.input);
+      const vals = glbRead(J, bin, smp.output);
+      /* Blender 从第 1 帧起算（0.0417 s），把时间轴平移到 0 起点才是无缝循环 */
+      const ts = Float32Array.from(times, (v) => v - t0);
+      const prop = path === 'rotation' ? 'quaternion' : (path === 'translation' ? 'position' : 'scale');
+      const Track = path === 'rotation' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack;
+      tracks.push(new Track(bone.name + '.' + prop, ts, Float32Array.from(vals)));
+    }
+    if (tracks.length) clip = new THREE.AnimationClip('Walk', -1, tracks);
+  }
+
+  /* 组装：root 里放骨架和网格，外面再套一层只管朝向的 yaw 组。
+     模型正面就是本地 +Z（和静态网格同一套约定），ALICE_YAW 一并放在这里。 */
+  const root = new THREE.Group();
+  root.add(rootBone);
+  root.add(mesh);
+  const yaw = new THREE.Group();
+  yaw.rotation.y = ALICE_YAW;      // 实测对着路走时看到的是背影，正面已是本地 +Z
+  yaw.add(root);
+
+  const mixer = new THREE.AnimationMixer(root);
+  let action = null;
+  if (clip) {
+    action = mixer.clipAction(clip);
+    action.play();
+    action.timeScale = 0;            // 站着不动就先定住
+  }
+  Object.assign(WALK, { root: yaw, mixer, action, clip, mesh });
+  return WALK;
+}
+
 function makeAlice() {
   const g = new THREE.Group();
   /* rig 这一层专门挂走路动画；g 只负责朝向与体型缩放，两层互不打架 */
   const rig = new THREE.Group();
   g.add(rig);
   g.userData.rig = rig;
+
+  /* 首选：带骨骼的走路 GLB（assets/alice_walk.js） */
+  const walk = buildWalkAlice();
+  if (walk) {
+    rig.add(walk.root);
+    g.userData.walk = walk;
+    g.add(contactShadow(0, 0, 0.32, 0.26, 0.5));
+    return g;
+  }
 
   const geo = ALICE.geo || (ALICE.geo = aliceGeometry());
   if (!geo) return alicePlaceholder(g, rig);   // 没带 assets/alice.js 时的退路
@@ -2446,11 +2845,27 @@ function makeAlice() {
   return g;
 }
 
-/** 走路姿态：静态网格没骨骼，用起伏 / 前倾 / 侧摆把"雕像"变成"在走路的人" */
-function animateAlice() {
+/** 走路姿态。
+    有骨骼行走 GLB 时：直接把 mixer 的播放速度绑到实际移动速度上
+      —— 一个循环跨 0.76 m，按物理换算会变成电风扇，所以压成 0.7~2.2 倍，
+         "步频看起来跟得上速度"就够，脚下滑一点在这种画风里几乎看不出来。
+    没有骨骼时（老静态网格 / 占位胶囊）：整块起伏 + 前倾 + 侧摆假装在走。 */
+function animateAlice(dt) {
   const rig = world.player.userData.rig;
   if (!rig) return;
   const sp = world.vel.length();
+  const walk = world.player.userData.walk;
+
+  if (walk && walk.mixer) {
+    const k = Math.min(1, sp / CONFIG.walk.speed);
+    if (walk.action) walk.action.timeScale = sp > 0.15 ? 0.7 + k * 1.5 : 0;
+    walk.mixer.update(dt || 0);
+    /* 站住时留一点呼吸，别正好停在跨步中间像块板 */
+    rig.position.y = sp < 0.15 ? Math.sin(world.elapsed * 1.5) * 0.006 : 0;
+    rig.rotation.set(0, 0, 0);
+    return;
+  }
+
   const gait = Math.min(1, sp / CONFIG.walk.speed);
   const t = world.elapsed;
   rig.position.y = Math.abs(Math.sin(t * 8.4)) * 0.05 * gait;
@@ -2581,8 +2996,8 @@ function updatePlayer(dt) {
     while (d < -Math.PI) d += Math.PI * 2;
     world.player.rotation.y += d * Math.min(1, dt * 9);
   }
-  /* 走路姿态（起伏 / 前倾 / 侧摆都挂在 rig 层，见 animateAlice） */
-  animateAlice();
+  /* 走路姿态（骨骼动画或起伏 / 前倾 / 侧摆，见 animateAlice） */
+  animateAlice(dt);
 }
 
 function updateCamera(dt) {
@@ -2603,7 +3018,8 @@ function updateCamera(dt) {
       camera.position.z *= st.camRadius / d;
     }
   }
-  camera.lookAt(p.x + fx * 2.6, p.y + 1.35, p.z + fz * 2.6);
+  /* 注视点往前探 camLead 米：角色被压到画面下半部，身前的小路和树才有纵深 */
+  camera.lookAt(p.x + fx * CONFIG.camLead, p.y + 1.35, p.z + fz * CONFIG.camLead);
 }
 
 /* ============================================================================
@@ -2720,9 +3136,12 @@ addEventListener('resize', () => {
 
 function init() {
   document.getElementById('grain').style.opacity = CONFIG.grain;
+  /* 旧纸滤镜：整幅画面统一降饱和 + 上米黄，一步到位去掉"3D 卡通"数码感。
+     想逐场景微调可以直接改 CONFIG.paperFilter；设 '' 就完全关闭。 */
+  renderer.domElement.style.filter = CONFIG.paperFilter;
 
   /* 程序化手绘贴图（CONFIG.textures 里填了路径会自动改用外部素材） */
-  const sizes = { grass: 512, dirt: 512, brick: 512, bark: 512, vine: 512, rock: 512, caveWall: 512, caveFloor: 512, wood: 512, cap: 256, stem: 256, petal: 256, cloth: 256, door: 512, cake: 256 };
+  const sizes = { grass: 512, dirt: 512, brick: 512, bark: 512, vine: 512, canopy: 512, rock: 512, caveWall: 512, caveFloor: 512, wood: 512, cap: 256, stem: 256, petal: 256, cloth: 256, door: 512, cake: 256 };
   for (const name in TEX_DRAW) {
     TEX[name] = makeTex(name, sizes[name] || 512, TEX_DRAW[name], [1, 1]);
   }
@@ -2731,8 +3150,14 @@ function init() {
   SPR.grassBill = billboardTex('grass');
   SPR.flowerBill = billboardTex('flower');
 
+  /* 调试口子：?act=1|2|3 直接进第几幕，?cam=2.5 拉近相机看角色细节。
+     正常游玩不带参数，行为和以前完全一样。 */
+  const q = new URLSearchParams(location.search);
+  if (q.has('cam')) CONFIG.cam.distance = Math.max(1.5, Math.min(14, parseFloat(q.get('cam')) || CONFIG.cam.distance));
+  const act = parseInt(q.get('act'), 10);
+
   world.player = makeAlice();
-  loadChapter(0, false);
+  loadChapter(act >= 1 && act <= 3 ? act - 1 : 0, false);
   frame();
 }
 
