@@ -1,0 +1,17 @@
+{
+  "name": "alice-wonderland-journey",
+  "version": "1.0.0",
+  "private": true,
+  "description": "爱丽丝仙境旅程 · 网页 3D 关卡（Three.js）",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node serve.mjs"
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

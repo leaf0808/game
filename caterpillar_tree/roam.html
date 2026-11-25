@@ -4,13 +4,128 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#172129">
-  <title>毛毛虫的树枝 · 3D 漫游</title>
-  <link rel="stylesheet" href="../shared/scene.css">
+  <title>毛毛虫的蘑菇森林 · 3D 关卡</title>
+  <link rel="stylesheet" href="roam.css">
 </head>
 <body class="roam-page">
   <a class="back-link roam-back" href="./index.html">返回关卡</a>
-  <main id="roam-root" data-scene="caterpillar_tree" aria-label="毛毛虫的树枝 3D 漫游场景"></main>
+  <main id="roam-root" data-scene="caterpillar_tree" aria-label="毛毛虫的蘑菇森林 3D 关卡"></main>
+
+  <div id="hud" hidden>
+    <div id="hud-size" aria-label="体型状态">
+      <div class="size-icon" data-size="small" data-tip="缩小：可以钻过狭窄小门"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="9" r="5.5"/><path d="M14.5 16h11l5 19H9.5z"/><path class="limb" d="M16 35v4M24 35v4"/></svg><span>缩小</span></div>
+      <div class="size-icon" data-size="normal" data-tip="正常：可以跨普通地形"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="9" r="5.5"/><path d="M14.5 16h11l5 19H9.5z"/><path class="limb" d="M16 35v4M24 35v4"/></svg><span>正常</span></div>
+      <div class="size-icon" data-size="big" data-tip="巨大：可以压动重型开关"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="9" r="5.5"/><path d="M14.5 16h11l5 19H9.5z"/><path class="limb" d="M16 35v4M24 35v4"/></svg><span>巨大</span></div>
+      <span id="hud-size-extra"></span>
+    </div>
+
+    <div id="hud-side">
+      <button id="btn-gallery" class="side-btn" type="button" disabled>图鉴</button>
+      <button id="btn-replay" class="side-btn" type="button">剧情回看</button>
+      <button id="btn-pause" class="side-btn" type="button">暂停 Esc</button>
+      <div id="hud-spores" aria-label="孢子收集">孢子 <i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+
+    <div id="hud-keys">WASD 移动 · 空格 跳跃 · 拖拽转视角 · 滚轮缩放 · E 互动 · 1/2 使用道具 · Esc 暂停</div>
+  </div>
+
+  <div id="hint" hidden><span id="hint-text"></span><button id="hint-close" type="button" aria-label="关闭提示">×</button></div>
+  <div id="toast" hidden></div>
+  <div id="callout" hidden></div>
+  <div id="prompt" hidden><kbd>E</kbd><span id="prompt-text"></span></div>
+
+  <div id="hud-items" hidden>
+    <button class="slot" data-item="potion" type="button"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M16 4h8v4l-1 3v3.5c4 2 6.5 6 6.5 10.5a9.5 9.5 0 0 1-19 0C10.5 20.5 13 16.5 17 14.5V11l-1-3z"/><path class="liquid" d="M12.2 24.5c.8-2.6 3.6-4 7.8-4s7 1.4 7.8 4a7.5 7.5 0 0 1-15.6 0z"/></svg><span>喝我药水</span><kbd>1</kbd></button>
+    <button class="slot" data-item="cake" type="button"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 20h26v13H7z"/><path class="icing" d="M7 20c0-5 6-7 13-7s13 2 13 7v3H7z"/><rect x="18" y="7" width="4" height="7"/><path class="flame" d="M20 2c2 2.5 2 4-0 5-2-1-2-2.5 0-5z"/></svg><span>吃我蛋糕</span><kbd>2</kbd></button>
+  </div>
+
+  <section id="dialogue" hidden>
+    <div class="dlg-name" id="dlg-name"></div>
+    <p class="dlg-zh" id="dlg-zh"></p>
+    <p class="dlg-en" id="dlg-en"></p>
+    <span class="dlg-next" id="dlg-next">▼ 点击继续</span>
+    <div class="dlg-choices" id="dlg-choices"></div>
+  </section>
+
+  <section id="poem" class="modal" hidden>
+    <div class="scroll">
+      <p class="eyebrow">YOU ARE OLD, FATHER WILLIAM</p>
+      <h2>《威廉老爹，你老了》</h2>
+      <p class="poem-progress" id="poem-progress"></p>
+      <blockquote id="poem-line"></blockquote>
+      <div class="poem-options" id="poem-options"></div>
+      <p class="poem-reply" id="poem-reply"></p>
+    </div>
+  </section>
+
+  <section id="fail" class="modal" hidden>
+    <div class="panel">
+      <h2>【迷失在兔子洞中】</h2>
+      <p id="fail-text"></p>
+      <div class="actions">
+        <button class="primary" id="fail-checkpoint" type="button">回到存档点</button>
+        <button id="fail-restart" type="button">重新开始本关</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="pause" class="modal" hidden>
+    <div class="panel">
+      <h2>暂停</h2>
+      <p class="muted">毛毛虫的蘑菇森林 · 第二章</p>
+      <div class="actions column">
+        <button class="primary" id="pause-resume" type="button">继续</button>
+        <button id="pause-replay" type="button">剧情回看</button>
+        <button id="pause-help" type="button">操作说明</button>
+        <a id="pause-map" href="../index.html">返回旅程地图</a>
+      </div>
+      <p id="pause-help-text" hidden>WASD / 方向键走动，空格跳跃；拖拽鼠标转动视角，滚轮缩放；E 或空格：对话、咬蘑菇、互动（身旁有可互动的东西时，空格优先互动）；1 喝药水变小，2 吃蛋糕变大；Esc 暂停。连续咬同一侧会“过头”，再咬另一侧一口即可恢复。</p>
+    </div>
+  </section>
+
+  <section id="replay" class="modal" hidden>
+    <div class="panel wide">
+      <h2>剧情回看</h2>
+      <div class="replay-list" id="replay-list"></div>
+      <div class="replay-lines" id="replay-lines"></div>
+      <div class="actions"><button id="replay-back" type="button" hidden>返回列表</button><button class="primary" id="replay-close" type="button">关闭</button></div>
+    </div>
+  </section>
+
+  <section id="gallery" class="modal" hidden>
+    <div class="panel wide">
+      <h2>图鉴 · 毛毛虫三视图</h2>
+      <figure><img src="../assets/ui/caterpillar-threeview.png" alt="毛毛虫三视图：正面、侧面、背面"><figcaption><span>正面</span><span>侧面</span><span>背面</span></figcaption></figure>
+      <div class="actions"><button class="primary" id="gallery-close" type="button">关闭</button></div>
+    </div>
+  </section>
+
+  <section id="ending" class="modal" hidden>
+    <div class="panel">
+      <p class="eyebrow">CHAPTER 02 CLEARED</p>
+      <h2>毛毛虫的蘑菇森林 · 完成</h2>
+      <p class="muted" id="ending-stats"></p>
+      <p>“控制好自己，你就能找到你是谁。”</p>
+      <div class="actions">
+        <a class="primary" href="../duchess_cottage/index.html">前往下一关：公爵夫人的小屋</a>
+        <a href="../index.html">返回旅程地图</a>
+      </div>
+    </div>
+  </section>
+
+  <div id="boot" class="modal">
+    <div class="panel start">
+      <p class="eyebrow">CHAPTER 02 / 03</p>
+      <h2>毛毛虫的蘑菇森林</h2>
+      <p class="en">Advice from a Caterpillar</p>
+      <p class="muted" id="boot-status">正在走进森林…</p>
+      <button class="primary" id="boot-start" type="button" disabled>请稍候</button>
+      <p class="muted small">WASD 走动 · 鼠标拖拽转视角 · E 互动</p>
+    </div>
+  </div>
+
+  <div id="fade" aria-hidden="true"></div>
   <script src="../shared/progress.js"></script>
-  <script src="./roam.js"></script>
+  <script src="roam.bundle.js"></script>
 </body>
 </html>
