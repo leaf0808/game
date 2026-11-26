@@ -270,6 +270,9 @@
    所有随机都走固定种子 —— 每次打开看到的都是同一张画。
    ========================================================================== */
 (function paintArt() {
+  document.getElementById('art').style.backgroundImage = "url('../assets/cover.jpg')";
+  document.documentElement.style.setProperty('--art-accent', '#f2c866');
+  return;
   const W = 1600, H = 900;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;

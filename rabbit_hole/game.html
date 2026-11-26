@@ -555,8 +555,8 @@ const CONFIG = {
   /* 画面叠加的旧纸颗粒强度 */
   grain: 0.14,
 
-  /* 漫游手感 */
-  walk: { speed: 2.5, run: 3.8, accel: 14, turn: 2.6 },
+  /* 漫游手感：适当加快，缩短追白兔的等待距离 */
+  walk: { speed: 3.6, run: 5.6, accel: 18, turn: 2.6 },
 
   /* 第三人称相机 */
   cam: { distance: 7.4, height: 3.1, pitch: 0.30, lerp: 6.5 },
@@ -2736,7 +2736,7 @@ function buildForest() {
   /* 白兔引导摆件 */
   const rabbit = makeRabbit();
   scene.add(rabbit);
-  let rabbitT = 0.09;
+  let rabbitT = 0.03; // 让白兔在起点附近更容易看见
 
   /* 走到路的尽头（幕 2 的洞口方向）触发转场 */
   const state = {
