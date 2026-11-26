@@ -77,18 +77,6 @@
       radial-gradient(ellipse 120% 90% at 50% 120%, rgba(46,36,20,.12), rgba(0,0,0,0) 62%);
   }
 
-  /* ---- 幕间淡入淡出 ---- */
-  #veil {
-    position: fixed;
-    inset: 0;
-    z-index: 8;
-    background: radial-gradient(ellipse at 50% 50%, #241f16 0%, #100e0a 100%);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .62s ease;
-  }
-  #veil.on { opacity: 1; }
-
   /* ---- 幕名卡片 ---- */
   #card {
     position: fixed;
@@ -260,7 +248,6 @@
   </div>
 
   <div id="hint"></div>
-  <div id="veil"></div>
   <div id="card">
     <p class="eyebrow"></p>
     <h2></h2>
@@ -1824,12 +1811,26 @@ function buildForest() {
     [-1.8, 0, -95], [1.1, 0, -110], [0, 0, -126],
   ], hw, 260);
 
+  /* 起点身后再接一段路尾：弯进林子深处，回头也看不到路的尽头。
+     只做画面延伸，不参与进度判定 */
+  const hwB = (t) => 1.9 + t * 0.15;
+  const corB = corridor([
+    [2.6, 0, 84], [4.2, 0, 70], [0.4, 0, 57], [3.0, 0, 44],
+    [0.1, 0, 31], [1.0, 0, 19], [0, 0, 8],
+  ], hwB, 150);
+
   /* 四层带子：外圈偏草绿 → 内圈才是土黄路面。边缘靠颜色"洗"进草地，
      不做硬路沿，路面才不会像贴上去的彩条。 */
   scene.add(ribbon(cor, (t) => hw(t) * 2.9, 0.002, 9, 'dirt', 2.2, 0xd6d8b4));
   scene.add(ribbon(cor, (t) => hw(t) * 2.0, 0.006, 8, 'dirt', 1.7, 0xd2d6b0));
   scene.add(ribbon(cor, (t) => hw(t) * 1.45, 0.012, 7.5, 'dirt', 1.3, 0xe6dab8));
   scene.add(ribbon(cor, (t) => hw(t), 0.022, 7, 'dirt', 1));
+
+  /* 路尾用同一套四层带子，接缝处宽度对齐（z=8 处同为 2.05 m） */
+  scene.add(ribbon(corB, (t) => hwB(t) * 2.9, 0.002, 9, 'dirt', 2.2, 0xd6d8b4));
+  scene.add(ribbon(corB, (t) => hwB(t) * 2.0, 0.006, 8, 'dirt', 1.7, 0xd2d6b0));
+  scene.add(ribbon(corB, (t) => hwB(t) * 1.45, 0.012, 7.5, 'dirt', 1.3, 0xe6dab8));
+  scene.add(ribbon(corB, (t) => hwB(t), 0.022, 7, 'dirt', 1));
 
   /* 树冠缝隙漏下来的一束天光：落在小路中段，把往哪儿走照亮。
      用聚光灯而不是画一个光柱——没有阴影、penumbra=1，边缘是化开的，
@@ -1899,6 +1900,20 @@ function buildForest() {
     for (const p of alongCorridor(cor, 13, side,
       (t) => hw(t) + 8.5, (t) => hw(t) + 21, 0.03, 1.0)) {
       tree(p, rnd(1.25, 1.95), Math.max(0.6, washAt(p.t)));
+    }
+  }
+
+  /* 路尾两侧的树：同款夹道，弯道把尽头挡在树后 */
+  for (const side of [-1, 1]) {
+    for (const p of alongCorridor(corB, side > 0 ? 7 : 6, side,
+      (t) => hwB(t) + 2.2, (t) => hwB(t) + 7.5, 0.04, 0.97)) {
+      const W = washAt(0.05 + (1 - p.t) * 0.45);
+      tree(p, rnd(1.35, 1.85), W);
+      foot(p, W);
+    }
+    for (const p of alongCorridor(corB, side > 0 ? 8 : 7, side,
+      (t) => hwB(t) + 8, (t) => hwB(t) + 20, 0.02, 0.98)) {
+      tree(p, rnd(1.1, 1.7), Math.max(0.6, washAt(0.18)));
     }
   }
 
@@ -1990,6 +2005,115 @@ function buildForest() {
   scene.add(makeBillboards('flowerBill', 620, edgeArea(2.2, -0.5, 3.4), 0xf2ecd8, 0.4, 0.78));
   scene.add(makeBillboards('flowerBill', 460, edgeArea(3.4, 0, 12), 0xe9e3cd, 0.4, 0.82));
 
+  /* 路尾两侧的草与蘑菇 */
+  const edgeAreaB = (mul, from, to) => () => {
+    const t = rnd(0.01, 0.98);
+    const s = corB.table[Math.round(t * corB.samples)];
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const off = hwB(t) * mul + rnd(from, to);
+    return { x: s.x + s.sx * side * off, z: s.z + s.sz * side * off };
+  };
+  scene.add(makeBillboards('grassBill', 900, edgeAreaB(1.8, -1.0, 1.1), 0xe4ecc6, 0.5, 1.0));
+  scene.add(makeBillboards('grassBill', 500, edgeAreaB(2.9, 0, 8), 0xd9e2bc, 0.5, 1.1));
+  for (const p of alongCorridor(corB, 8, 1, (t) => hwB(t) * 1.15, (t) => hwB(t) * 1.8, 0.06, 0.94)) {
+    const m = makeMushroom(rnd(0.24, 0.5));
+    m.position.set(p.x, 0, p.z);
+    m.rotation.y = rnd(0, 6.28);
+    scene.add(m);
+    scene.add(contactShadow(p.x, p.z, 0.6, 0.55, 0.3));
+    obstacles.push({ x: p.x, z: p.z, r: 0.5 });
+  }
+  for (const p of alongCorridor(corB, 6, -1, (t) => hwB(t) * 1.2, (t) => hwB(t) * 1.9, 0.08, 0.92)) {
+    const m = makeMushroom(rnd(0.2, 0.42));
+    m.position.set(p.x, 0, p.z);
+    m.rotation.y = rnd(0, 6.28);
+    scene.add(m);
+    scene.add(contactShadow(p.x, p.z, 0.5, 0.45, 0.3));
+  }
+
+  /* 整片绿地也铺满树：小路 22 m 之外用两个 InstancedMesh 画完，
+     远处的林子不再是一片空草地 */
+  {
+    const spots = [];
+    for (let gx = -168; gx <= 168; gx += 7.2) {
+      for (let gz = 72; gz >= -220; gz -= 7.2) {
+        const px = gx + rnd(-2.6, 2.6), pz = gz + rnd(-2.6, 2.6);
+        if (Math.hypot(px, pz + 58) > 192) continue;
+        let best = 1e9;
+        for (let i = 0; i < cor.table.length; i++) {
+          const s = cor.table[i];
+          const dx = px - s.x, dz = pz - s.z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 < best) best = d2;
+        }
+        if (best < 22 * 22) continue;
+        let bestB = 1e9;
+        for (let i = 0; i < corB.table.length; i++) {
+          const s = corB.table[i];
+          const dx = px - s.x, dz = pz - s.z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 < bestB) bestB = d2;
+        }
+        if (bestB < 7 * 7) continue;              // 路尾路边也留出来
+        spots.push({ x: px, z: pz, s: rnd(0.7, 1.4), r: rnd(0, 6.28) });
+      }
+    }
+    const trunks = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.24, 0.42, 6, 7, 1),
+      mat('bark', 2, 3, { color: 0xc6bda2 }), spots.length);
+    const crowns = new THREE.InstancedMesh(
+      GEO.puff, mat('canopy', 2, 2, { color: 0xd8dfc4, unlit: true }), spots.length);
+    const m4 = new THREE.Matrix4();
+    const q4 = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const pos = new THREE.Vector3();
+    const scl = new THREE.Vector3();
+    spots.forEach((p, i) => {
+      q4.setFromAxisAngle(up, p.r);
+      pos.set(p.x, 3 * p.s, p.z);
+      scl.set(p.s, p.s, p.s);
+      m4.compose(pos, q4, scl);
+      trunks.setMatrixAt(i, m4);
+      pos.set(p.x, 6.3 * p.s, p.z);
+      scl.set(rnd(2.2, 2.8) * p.s, rnd(1.5, 1.9) * p.s, rnd(2.2, 2.8) * p.s);
+      m4.compose(pos, q4, scl);
+      crowns.setMatrixAt(i, m4);
+    });
+    trunks.instanceMatrix.needsUpdate = true;
+    crowns.instanceMatrix.needsUpdate = true;
+    trunks.frustumCulled = false;
+    crowns.frustumCulled = false;
+    scene.add(trunks, crowns);
+  }
+
+  /* 林下的草与蘑菇：离开小路随机铺开，让整片绿地都有东西可看 */
+  const wideArea = (minOff, maxOff) => () => {
+    let px = 0, pz = 0;
+    for (let k = 0; k < 10; k++) {
+      px = rnd(-150, 150);
+      pz = rnd(64, -205);
+      let bd = 1e9;
+      for (let i = 0; i < cor.table.length; i++) {
+        const s = cor.table[i];
+        const d2 = (s.x - px) * (s.x - px) + (s.z - pz) * (s.z - pz);
+        if (d2 < bd) bd = d2;
+      }
+      bd = Math.sqrt(bd);
+      if (bd > minOff && bd < maxOff) return { x: px, z: pz };
+    }
+    return { x: px, z: pz };
+  };
+  scene.add(makeBillboards('grassBill', 1100, wideArea(4, 46), 0xdae2be, 0.5, 1.15));
+  scene.add(makeBillboards('grassBill', 520, wideArea(40, 120), 0xd3dcb8, 0.7, 1.5));
+  const wideMush = wideArea(4, 34);
+  for (let i = 0; i < 34; i++) {
+    const p = wideMush();
+    const m = makeMushroom(rnd(0.18, 0.46));
+    m.position.set(p.x, 0, p.z);
+    m.rotation.y = rnd(0, 6.28);
+    scene.add(m);
+  }
+
   /* 薄雾：浓度调高、颜色直接取雾色，让远处树和蘑菇是"淡出去"而不是"变黑" */
   /* 雾片抬到 1.6 m 以上：贴地的雾片会被当成地上的一摊水，
      人眼的期待是雾挂树干中段、把远处化掉 */
@@ -2028,7 +2152,7 @@ function buildForest() {
 
   /* 出生在路的"中后段"：镜头在后面跟着，前面留出长长的蜿蜒路 */
   const state = {
-    scene, cor, obstacles,
+    scene, cor, corB, obstacles,
     spawn: { x: cor.table[16].x, z: cor.table[16].z, yaw: 0 },
     progress: () => world.player ? nearest(cor, world.player.position.x, world.player.position.z).index / cor.samples : 0,
     reachedEnd: () => state.progress() > 0.965,
@@ -2538,7 +2662,6 @@ const world = {
   camYaw: 0,
   camPitch: CONFIG.cam.pitch,
   vel: new THREE.Vector3(),
-  fading: false,
   elapsed: 0,
   enterAt: 0,
   finished: false,
@@ -2992,7 +3115,7 @@ canvas.addEventListener('wheel', (e) => {
    ========================================================================== */
 
 function respawn() {
-  if (!world.state || world.fading) return;
+  if (!world.state) return;
   const sp = world.state.spawn;
   world.player.position.set(sp.x, 0, sp.z);
   world.camYaw = sp.yaw;
@@ -3022,7 +3145,16 @@ function updatePlayer(dt) {
   p.addScaledVector(world.vel, dt);
 
   /* 1) 道路边界  2) 圆形障碍  3) 大厅的圆形墙 */
-  if (st.cor) clampToCorridor(st.cor, p, 0.6);
+  if (st.cor) {
+    /* 路尾也能走：按离角色更近的那条走廊来约束 */
+    let walkCor = st.cor;
+    if (st.corB) {
+      const da = nearest(st.cor, p.x, p.z).dist;
+      const db = nearest(st.corB, p.x, p.z).dist;
+      if (db < da) walkCor = st.corB;
+    }
+    clampToCorridor(walkCor, p, 0.6);
+  }
   if (st.radius) {
     const d = Math.hypot(p.x, p.z);
     if (d > st.radius) { p.x *= st.radius / d; p.z *= st.radius / d; }
@@ -3066,11 +3198,10 @@ function updateCamera(dt) {
 }
 
 /* ============================================================================
-   14. 幕间淡入淡出
+   14. 幕间切换
    ========================================================================== */
 
 const el = {
-  veil: document.getElementById('veil'),
   card: document.getElementById('card'),
   chapter: document.getElementById('chapter'),
   trail: document.getElementById('trail'),
@@ -3095,47 +3226,35 @@ function toast(msg) {
   hintTimer = setTimeout(() => el.hint.classList.remove('on'), 3800);
 }
 
-function loadChapter(i, fade) {
-  const enter = () => {
-    world.chapter = i;
-    const st = world.states[i] || (world.states[i] = CHAPTERS[i].build());
-    world.state = st;
-    st.scene.add(world.player);
-    const sp = st.spawn;
-    world.player.position.set(sp.x, 0, sp.z);
-    /* 模型正面是局部 +Z，而 camYaw 的"前"是 -Z，所以这里差 π */
-    world.player.rotation.set(0, sp.yaw + Math.PI, 0);
-    world.vel.set(0, 0, 0);
-    world.camYaw = sp.yaw;
-    world.camPitch = CONFIG.cam.pitch;
-    /* 相机直接落到起始位，避免穿幕飞过来 */
-    updateCamera(1);
-    el.chapter.innerHTML = '<b>' + CHAPTERS[i].title + '</b>' + CHAPTERS[i].eyebrow;
-    showCard(CHAPTERS[i]);
-    toast(CHAPTERS[i].hint);
-    world.enterAt = world.elapsed;
-    world.fading = false;
-  };
-
-  if (!fade) { enter(); return; }
-  world.fading = true;
-  el.veil.classList.add('on');
-  setTimeout(() => {
-    enter();
-    setTimeout(() => el.veil.classList.remove('on'), 260);
-  }, 660);
+function loadChapter(i) {
+  world.chapter = i;
+  const st = world.states[i] || (world.states[i] = CHAPTERS[i].build());
+  world.state = st;
+  st.scene.add(world.player);
+  const sp = st.spawn;
+  world.player.position.set(sp.x, 0, sp.z);
+  /* 模型正面是局部 +Z，而 camYaw 的"前"是 -Z，所以这里差 π */
+  world.player.rotation.set(0, sp.yaw + Math.PI, 0);
+  world.vel.set(0, 0, 0);
+  world.camYaw = sp.yaw;
+  world.camPitch = CONFIG.cam.pitch;
+  /* 相机直接落到起始位 */
+  updateCamera(1);
+  el.chapter.innerHTML = '<b>' + CHAPTERS[i].title + '</b>' + CHAPTERS[i].eyebrow;
+  showCard(CHAPTERS[i]);
+  toast(CHAPTERS[i].hint);
+  world.enterAt = world.elapsed;
 }
 
 function advance() {
   if (world.finished) return;
-  if (world.chapter < CHAPTERS.length - 1) loadChapter(world.chapter + 1, true);
+  if (world.chapter < CHAPTERS.length - 1) loadChapter(world.chapter + 1);
   else finish();
 }
 
 /** 三幕走完：写回地图进度并返回 */
 function finish() {
   world.finished = true;
-  el.veil.classList.add('on');
   el.card.querySelector('.eyebrow').textContent = 'DOWN THE RABBIT HOLE';
   el.card.querySelector('h2').textContent = '掉进仙境';
   el.card.querySelector('.sub').textContent = '兔子洞已通关 · 毛毛虫的树枝解锁';
@@ -3155,7 +3274,7 @@ function frame() {
   const dt = Math.min(0.05, clock.getDelta());
   world.elapsed += dt;
 
-  if (world.state && !world.fading) {
+  if (world.state) {
     updatePlayer(dt);
     world.state.update(dt, world.elapsed);
     /* 切幕后 0.8 秒内不判定终点，避免幕间状态还没落稳就连跳几幕 */
@@ -3205,7 +3324,7 @@ function init() {
   }
 
   world.player = makeAlice();
-  loadChapter(act >= 1 && act <= 3 ? act - 1 : 0, false);
+  loadChapter(act >= 1 && act <= 3 ? act - 1 : 0);
 
   if (q.has('night')) {
     const st = world.state;

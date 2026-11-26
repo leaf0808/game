@@ -8,17 +8,9 @@
   <title>Alice's Wonderland Journey</title>
   <link rel="preload" href="./assets/ui/wonderland-map.png" as="image">
   <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="./shared/transition.css">
-  <script src="./shared/transition.js" defer></script>
   <script>document.documentElement.classList.add('js');</script>
 </head>
 <body>
-  <div class="smoke-transition" aria-hidden="true">
-    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
-    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
-    <span class="smoke-cloud"></span><span class="smoke-cloud"></span><span class="smoke-cloud"></span>
-  </div>
-
   <svg class="svg-defs" aria-hidden="true">
     <defs>
       <filter id="map-title-warp" x="-5%" y="-15%" width="110%" height="130%" color-interpolation-filters="sRGB">
@@ -112,7 +104,6 @@
       <nav class="map-navigation" aria-label="选择仙境地点">
         <a
           class="hotspot hotspot--rabbit"
-          data-smoke-link
           data-scene="rabbit_hole"
           href="./rabbit_hole/index.html"
           aria-label="进入第一站：兔子洞"
@@ -124,7 +115,6 @@
         </a>
         <a
           class="hotspot hotspot--caterpillar is-locked"
-          data-smoke-link
           data-scene="caterpillar_tree"
           href="./caterpillar_tree/index.html"
           aria-label="进入第二站：毛毛虫的树枝"
@@ -136,7 +126,6 @@
         </a>
         <a
           class="hotspot hotspot--duchess is-locked"
-          data-smoke-link
           data-scene="duchess_cottage"
           href="./duchess_cottage/index.html"
           aria-label="进入第三站：公爵夫人的小屋"
